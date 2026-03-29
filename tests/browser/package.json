@@ -1,0 +1,16 @@
+{
+  "name": "cpi-auth-browser-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "report": "npx playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "pg": "^8.13.0",
+    "@types/pg": "^8.11.0",
+    "otpauth": "^9.4.0"
+  }
+}

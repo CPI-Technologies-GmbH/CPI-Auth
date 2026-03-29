@@ -1,0 +1,56 @@
+server: http://localhost:5050
+tenant_id: a0000000-0000-0000-0000-000000000001
+tokens:
+  colors:
+    primary: "#6366f1"
+    primary-hover: "#4f46e5"
+    background: "#0f172a"
+    surface: "#1e293b"
+    border: "#334155"
+    text: "#e2e8f0"
+    text-muted: "#94a3b8"
+    error: "#f87171"
+    success: "#34d399"
+  spacing:
+    xs: 0.25rem
+    sm: 0.5rem
+    md: 1rem
+    lg: 1.5rem
+    xl: 2.5rem
+  radius:
+    sm: 6px
+    md: 8px
+    lg: 16px
+  typography:
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif
+    font-size-sm: 0.8125rem
+    font-size-base: 0.875rem
+    font-size-lg: 1.5rem
+templates:
+  login:
+    html: templates/login.html
+    css: templates/login.css
+  signup:
+    html: templates/signup.html
+    css: templates/signup.css
+  profile:
+    html: templates/profile.html
+    css: templates/profile.css
+locales:
+  - en
+  - de
+preview:
+  custom_fields:
+    - label: Company
+      type: text
+      required: true
+      placeholder: Acme Inc.
+    - label: Phone
+      type: tel
+      required: false
+      placeholder: +1 555-1234
+  sample_data:
+    user.name: Jane Smith
+    user.email: jane@acme.com
+    application.name: Acme Portal
+    tenant.name: Acme Corp

@@ -1,0 +1,4 @@
+ALTER TABLE user_roles DROP COLUMN IF EXISTS organization_id;
+ALTER TABLE roles DROP COLUMN IF EXISTS is_system;
+ALTER TABLE roles DROP COLUMN IF EXISTS description;
+DROP TABLE IF EXISTS permissions;
