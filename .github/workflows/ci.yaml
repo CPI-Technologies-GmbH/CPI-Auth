@@ -54,7 +54,6 @@ jobs:
           AF_NATS_URL: "nats://localhost:4222"
           E2E_API_URL: "http://localhost:5050"
           E2E_DATABASE_URL: "postgres://authforge:authforge_secret@localhost:5432/authforge?sslmode=disable"
-        continue-on-error: true
 
   admin-ui-test:
     name: Admin UI Tests
