@@ -1,0 +1,71 @@
+CPI Auth has been deployed successfully!
+
+=======================================================================
+  ACCESS URLs
+=======================================================================
+
+{{- $domain := .Values.global.domain }}
+{{- $scheme := ternary "https" "http" .Values.global.tls }}
+
+{{- if .Values.ingress.enabled }}
+
+  API / Core:    {{ $scheme }}://{{ $domain }}/
+  Login UI:      {{ $scheme }}://{{ $domain }}/login
+  {{- if .Values.adminUI.enabled }}
+  Admin UI:      {{ $scheme }}://{{ $domain }}/admin
+  {{- end }}
+  {{- if .Values.accountUI.enabled }}
+  Account UI:    {{ $scheme }}://{{ $domain }}/account
+  {{- end }}
+
+  To get the ingress IP address, run:
+
+    kubectl get ingress {{ include "cpi-auth.fullname" . }} -n {{ .Release.Namespace }}
+
+{{- else }}
+
+  The ingress is disabled. To access the services, use port-forwarding:
+
+    # Core API
+    kubectl port-forward svc/{{ include "cpi-auth.fullname" . }}-core 5050:5050 -n {{ .Release.Namespace }}
+
+    # Login UI
+    kubectl port-forward svc/{{ include "cpi-auth.fullname" . }}-login-ui 5053:5053 -n {{ .Release.Namespace }}
+
+    {{- if .Values.adminUI.enabled }}
+    # Admin UI
+    kubectl port-forward svc/{{ include "cpi-auth.fullname" . }}-admin-ui 5054:5054 -n {{ .Release.Namespace }}
+    {{- end }}
+
+    {{- if .Values.accountUI.enabled }}
+    # Account UI
+    kubectl port-forward svc/{{ include "cpi-auth.fullname" . }}-account-ui 5055:5055 -n {{ .Release.Namespace }}
+    {{- end }}
+
+{{- end }}
+
+=======================================================================
+  DEFAULT ADMIN CREDENTIALS
+=======================================================================
+
+  Email:    admin@example.com
+  Password: admin
+
+  IMPORTANT: Change the default admin password immediately after first login!
+
+=======================================================================
+  NOTES
+=======================================================================
+
+{{- if and .Values.postgresql.enabled (not .Values.postgresql.external.enabled) }}
+  - PostgreSQL is running in-cluster. For production, consider using a managed database.
+{{- end }}
+{{- if and .Values.redis.enabled (not .Values.redis.external.enabled) }}
+  - Redis is running in-cluster. For production, consider using a managed Redis instance.
+{{- end }}
+{{- if and .Values.nats.enabled (not .Values.nats.external.enabled) }}
+  - NATS is running in-cluster with JetStream enabled.
+{{- end }}
+{{- if not .Values.global.tls }}
+  - TLS is disabled. Enable it for production deployments.
+{{- end }}

@@ -1,0 +1,19 @@
+{{- if and .Values.redis.enabled (not .Values.redis.external.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cpi-auth.fullname" . }}-redis
+  labels:
+    {{- include "cpi-auth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    {{- include "cpi-auth.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+{{- end }}

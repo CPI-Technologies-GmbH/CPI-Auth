@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  go-test:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: authforge
+          POSTGRES_USER: authforge
+          POSTGRES_PASSWORD: authforge_secret
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U authforge"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      nats:
+        image: nats:2-alpine
+        ports: ["4222:4222"]
+        options: >-
+          --health-cmd "wget --spider --quiet http://localhost:8222/healthz || true"
+          --health-interval 10s
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - run: go build ./...
+      - run: go test ./... -count=1 -timeout 120s
+        env:
+          AF_DB_HOST: localhost
+          AF_DB_PORT: "5432"
+          AF_DB_USER: authforge
+          AF_DB_PASSWORD: authforge_secret
+          AF_DB_NAME: authforge
+          AF_REDIS_HOST: localhost
+          AF_NATS_URL: "nats://localhost:4222"
+          E2E_DATABASE_URL: "postgres://authforge:authforge_secret@localhost:5432/authforge?sslmode=disable"
+
+  admin-ui-test:
+    name: Admin UI Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: cd admin-ui && npm ci
+      - run: cd admin-ui && npx tsc --noEmit
+      - run: cd admin-ui && npx vitest run
+
+  login-ui-test:
+    name: Login UI Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: cd login-ui && npm ci
+      - run: cd login-ui && npx vitest run
+
+  account-ui-test:
+    name: Account UI Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: cd account-ui && npm ci
+      - run: cd account-ui && npx vitest run
+
+  sdk-test:
+    name: SDK Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: cd sdks/typescript && npm ci
+      - run: cd sdks/typescript && npx tsc
+      - run: cd sdks/typescript && npx vitest run

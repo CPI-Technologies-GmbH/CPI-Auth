@@ -1,0 +1,51 @@
+{{- if .Values.loginUI.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cpi-auth.fullname" . }}-login-ui
+  labels:
+    {{- include "cpi-auth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: login-ui
+spec:
+  replicas: {{ .Values.loginUI.replicas }}
+  selector:
+    matchLabels:
+      {{- include "cpi-auth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: login-ui
+  template:
+    metadata:
+      labels:
+        {{- include "cpi-auth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: login-ui
+    spec:
+      serviceAccountName: {{ include "cpi-auth.serviceAccountName" . }}
+      containers:
+        - name: login-ui
+          image: "{{ .Values.loginUI.image.repository }}:{{ .Values.loginUI.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.loginUI.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 5053
+              protocol: TCP
+          env:
+            - name: PUBLIC_API_URL
+              value: "http://{{ include "cpi-auth.fullname" . }}-core:5050"
+            - name: PORT
+              value: "5053"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          {{- with .Values.loginUI.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

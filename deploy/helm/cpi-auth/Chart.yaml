@@ -1,0 +1,17 @@
+apiVersion: v2
+name: cpi-auth
+description: CPI Auth - Identity and Access Management platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/cpi-technologies-gmbh/cpi-auth
+sources:
+  - https://github.com/cpi-technologies-gmbh/cpi-auth
+maintainers:
+  - name: CPI Technologies GmbH
+    url: https://github.com/cpi-technologies-gmbh
+keywords:
+  - iam
+  - authentication
+  - authorization
+  - identity
