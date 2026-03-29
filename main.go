@@ -27,6 +27,7 @@ import (
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/crypto"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/db"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/domains"
+	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/license"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/models"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/events"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/federation"
@@ -122,6 +123,7 @@ func main() {
 	domainVerificationRepo := db.NewDomainVerificationRepository(pool)
 	pageTemplateRepo := db.NewPageTemplateRepository(pool)
 	langStringRepo := db.NewLanguageStringRepository(pool)
+	licenseChecker := license.NewChecker(pool)
 
 	// --- Initialize Crypto / Key Management ---
 	var keyPair *crypto.KeyPair
@@ -314,7 +316,7 @@ func main() {
 				tenantRepo, appRepo, orgRepo, roleRepo,
 				webhookRepo, emailTemplateRepo, apiKeyRepo,
 				permRepo, appPermRepo, customFieldRepo, domainSvc,
-				pageTemplateRepo, langStringRepo, logger,
+				pageTemplateRepo, langStringRepo, licenseChecker, logger,
 			)
 			adminHandler.RegisterRoutes(r)
 		})

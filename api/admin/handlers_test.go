@@ -308,7 +308,7 @@ func buildHandler(userRepo *mockUserRepoAdmin, tenantRepo *mockTenantRepo, appRe
 	sessionSvc := sessions.NewService(newMockSessionRepoAdmin(), nil, cfg, logger)
 	eventSvc := events.NewService(nil, &mockAuditLogRepoAdmin{}, &mockWebhookRepoAdmin{}, logger)
 
-	return NewHandler(userSvc, sessionSvc, eventSvc, nil, nil, nil, tenantRepo, appRepo, nil, nil, &mockWebhookRepoAdmin{}, nil, nil, newMockPermRepoAdmin(), newMockAppPermRepoAdmin(), nil, nil, nil, nil, logger)
+	return NewHandler(userSvc, sessionSvc, eventSvc, nil, nil, nil, tenantRepo, appRepo, nil, nil, &mockWebhookRepoAdmin{}, nil, nil, newMockPermRepoAdmin(), newMockAppPermRepoAdmin(), nil, nil, nil, nil, nil, logger)
 }
 
 func buildHandlerWithPerms(
@@ -326,7 +326,7 @@ func buildHandlerWithPerms(
 	sessionSvc := sessions.NewService(newMockSessionRepoAdmin(), nil, cfg, logger)
 	eventSvc := events.NewService(nil, &mockAuditLogRepoAdmin{}, &mockWebhookRepoAdmin{}, logger)
 
-	return NewHandler(userSvc, sessionSvc, eventSvc, nil, nil, nil, tenantRepo, appRepo, nil, roleRepo, &mockWebhookRepoAdmin{}, nil, nil, permRepo, appPermRepo, nil, nil, nil, nil, logger)
+	return NewHandler(userSvc, sessionSvc, eventSvc, nil, nil, nil, tenantRepo, appRepo, nil, roleRepo, &mockWebhookRepoAdmin{}, nil, nil, permRepo, appPermRepo, nil, nil, nil, nil, nil, logger)
 }
 
 // --- Mock Permission Repositories ---

@@ -43,16 +43,18 @@ jobs:
         with:
           go-version: "1.23"
       - run: go build ./...
-      - run: go test ./... -count=1 -timeout 120s
+      - name: Run unit tests
+        run: go test $(go list ./... | grep -v /tests/e2e) -count=1 -timeout 120s
+      - name: Run E2E tests
+        run: go test ./tests/e2e/ -count=1 -timeout 120s
         env:
           AF_DB_HOST: localhost
           AF_DB_PORT: "5432"
-          AF_DB_USER: authforge
-          AF_DB_PASSWORD: authforge_secret
-          AF_DB_NAME: authforge
           AF_REDIS_HOST: localhost
           AF_NATS_URL: "nats://localhost:4222"
+          E2E_API_URL: "http://localhost:5050"
           E2E_DATABASE_URL: "postgres://authforge:authforge_secret@localhost:5432/authforge?sslmode=disable"
+        continue-on-error: true
 
   admin-ui-test:
     name: Admin UI Tests

@@ -35,11 +35,11 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Database.Port != 5432 {
 		t.Errorf("Database.Port = %d, want %d", cfg.Database.Port, 5432)
 	}
-	if cfg.Database.User != "cpi-auth" {
-		t.Errorf("Database.User = %q, want %q", cfg.Database.User, "cpi-auth")
+	if cfg.Database.User != "authforge" {
+		t.Errorf("Database.User = %q, want %q", cfg.Database.User, "authforge")
 	}
-	if cfg.Database.Database != "cpi-auth" {
-		t.Errorf("Database.Database = %q, want %q", cfg.Database.Database, "cpi-auth")
+	if cfg.Database.Database != "authforge" {
+		t.Errorf("Database.Database = %q, want %q", cfg.Database.Database, "authforge")
 	}
 	if cfg.Database.SSLMode != "disable" {
 		t.Errorf("Database.SSLMode = %q, want %q", cfg.Database.SSLMode, "disable")

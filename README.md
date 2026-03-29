@@ -232,4 +232,14 @@ Opens VitePress documentation at http://localhost:5173 with:
 
 ## License
 
-MIT
+**Business Source License 1.1 (BSL)**
+
+Free for production use up to:
+- **10 tenants**
+- **50,000 users** (across all tenants)
+
+Beyond these limits, a [commercial license](https://cpi-technologies.com/auth) is required.
+
+After 4 years from each version's release date, that version converts to **Apache 2.0**.
+
+See [LICENSE](./LICENSE) for full terms.

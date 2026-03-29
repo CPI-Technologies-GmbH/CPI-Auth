@@ -14,6 +14,7 @@ import (
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/actions"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/domains"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/events"
+	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/license"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/models"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/policy"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/sessions"
@@ -42,6 +43,7 @@ type Handler struct {
 	domainSvc        *domains.Service
 	pageTemplateRepo models.PageTemplateRepository
 	langStringRepo   models.LanguageStringRepository
+	licenseChecker   *license.Checker
 	logger           *zap.Logger
 }
 
@@ -66,6 +68,7 @@ func NewHandler(
 	domainSvc *domains.Service,
 	pageTemplateRepo models.PageTemplateRepository,
 	langStringRepo models.LanguageStringRepository,
+	licenseChecker *license.Checker,
 	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
@@ -88,6 +91,7 @@ func NewHandler(
 		domainSvc:        domainSvc,
 		pageTemplateRepo: pageTemplateRepo,
 		langStringRepo:   langStringRepo,
+		licenseChecker:   licenseChecker,
 		logger:           logger,
 	}
 }
@@ -287,6 +291,12 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	if h.licenseChecker != nil {
+		if err := h.licenseChecker.CanCreateUser(r.Context()); err != nil {
+			middleware.WriteError(w, models.ErrForbidden.WithMessage(err.Error()))
+			return
+		}
+	}
 	tenantID := middleware.GetTenantID(r.Context())
 
 	var input users.RegisterInput
@@ -533,6 +543,12 @@ func (h *Handler) ListTenants(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
+	if h.licenseChecker != nil {
+		if err := h.licenseChecker.CanCreateTenant(r.Context()); err != nil {
+			middleware.WriteError(w, models.ErrForbidden.WithMessage(err.Error()))
+			return
+		}
+	}
 	var tenant models.Tenant
 	if err := json.NewDecoder(r.Body).Decode(&tenant); err != nil {
 		middleware.WriteError(w, models.ErrBadRequest.Wrap(err))
