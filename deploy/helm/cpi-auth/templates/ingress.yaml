@@ -31,7 +31,7 @@ spec:
           {{- $uiSvc := printf "%s-admin-ui" (include "cpi-auth.fullname" .) }}
           {{- $loginSvc := printf "%s-login-ui" (include "cpi-auth.fullname" .) }}
           # Login UI routes (SvelteKit — handles OAuth login/consent flow)
-          {{- range list "/login" "/register" "/consent" "/device" "/verify-email" "/forgot-password" "/reset-password" "/error" }}
+          {{- range list "/login" "/register" "/consent" "/device" "/verify-email" "/forgot-password" "/reset-password" "/error" "/_app" }}
           - path: {{ . }}
             pathType: Prefix
             backend:
