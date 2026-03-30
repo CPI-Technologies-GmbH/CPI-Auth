@@ -70,7 +70,8 @@ func AutoMigrate(ctx context.Context, pool *pgxpool.Pool, logger *zap.Logger) er
 		_, err = pool.Exec(ctx, string(data))
 		if err != nil {
 			// Log but don't fail on non-critical errors (e.g. "already exists")
-			if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "duplicate key") {
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "already exists") || strings.Contains(errMsg, "duplicate key") || strings.Contains(errMsg, "does not exist") || strings.Contains(errMsg, "multiple primary keys") {
 				logger.Warn("migration had conflicts (skipped)", zap.String("file", file), zap.Error(err))
 			} else {
 				return fmt.Errorf("applying migration %s: %w", file, err)
