@@ -520,3 +520,136 @@ Language Strings:
 
 Validation complete. 1 warning.
 ```
+
+## cpi-auth setup
+
+One-command setup: create application, roles, permissions, and users in a single step.
+
+```bash
+cpi-auth setup [options]
+```
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-s, --server <url>` | env `CPI_AUTH_SERVER` | Server URL |
+| `-t, --token <token>` | saved token | Access token |
+| `--app-name <name>` | `My Application` | Application name |
+| `--app-type <type>` | `spa` | Type: spa, web, native, m2m |
+| `--redirect-uri <uri>` | | OAuth redirect URI (comma-separated) |
+| `--allowed-origin <origin>` | | CORS origin (comma-separated) |
+| `--logout-url <url>` | | Post-logout URL (comma-separated) |
+| `--grant-types <types>` | `authorization_code,refresh_token` | Grant types |
+| `--create-role <name>` | | Create role (repeatable) |
+| `--create-permission <name>` | | Create permission (repeatable) |
+| `--create-user <email>` | | Create user (repeatable) |
+| `--user-password <pw>` | auto-generated | Password for created users |
+| `--user-role <role>` | | Assign role to created users |
+| `--output <format>` | `env` | Output: env, json, yaml |
+
+### Examples
+
+```bash
+# Full setup with application, roles, and user
+cpi-auth setup \
+  --server https://auth.example.com \
+  --app-name "My SPA" \
+  --app-type spa \
+  --redirect-uri "https://app.example.com/callback" \
+  --allowed-origin "https://app.example.com" \
+  --create-permission "posts:read" \
+  --create-permission "posts:write" \
+  --create-role editor \
+  --create-user dev@example.com \
+  --user-password "SecurePass123" \
+  --user-role editor
+
+# Minimal: just create an application
+cpi-auth setup --app-name "API Backend" --app-type m2m --output json
+
+# Output as JSON (for CI/CD pipelines)
+cpi-auth setup --app-name "My App" --output json
+```
+
+## cpi-auth apps
+
+Manage OAuth applications.
+
+```bash
+cpi-auth apps list [--json]
+cpi-auth apps create --name <name> [--type <type>] [--redirect-uri <uri>]
+cpi-auth apps delete <id>
+cpi-auth apps rotate-secret <id>
+```
+
+### Examples
+
+```bash
+# List all applications
+cpi-auth apps list
+
+# Create a web application
+cpi-auth apps create \
+  --name "Backend API" \
+  --type m2m \
+  --grant-types client_credentials
+
+# Rotate client secret
+cpi-auth apps rotate-secret a1b2c3d4-...
+```
+
+## cpi-auth users
+
+Manage users.
+
+```bash
+cpi-auth users list [--search <query>] [--json]
+cpi-auth users create --email <email> --password <pw> [--name <name>] [--role <role>]
+cpi-auth users delete <id>
+cpi-auth users block <id>
+cpi-auth users unblock <id>
+```
+
+### Examples
+
+```bash
+# Search for users
+cpi-auth users list --search "john"
+
+# Create user with role
+cpi-auth users create \
+  --email john@example.com \
+  --password "SecurePass123" \
+  --name "John Doe" \
+  --role admin
+
+# Block a user
+cpi-auth users block a1b2c3d4-...
+```
+
+## cpi-auth roles
+
+Manage roles and permissions.
+
+```bash
+cpi-auth roles list [--json]
+cpi-auth roles create --name <name> [--permissions <perms>]
+cpi-auth roles permissions [--json]
+cpi-auth roles create-permission --name <name> [--display-name <name>]
+```
+
+### Examples
+
+```bash
+# List all roles
+cpi-auth roles list
+
+# Create role with permissions
+cpi-auth roles create \
+  --name editor \
+  --permissions "posts:read,posts:write,comments:moderate"
+
+# Create a new permission
+cpi-auth roles create-permission --name "billing:manage" --display-name "Manage Billing"
+```

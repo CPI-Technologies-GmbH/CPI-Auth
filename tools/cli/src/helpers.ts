@@ -36,6 +36,34 @@ export function getClient(config: ProjectConfig): APIClient {
   return client
 }
 
+// getClientFromFlags creates a client from CLI flags (no config file needed)
+export function getClientFromFlags(opts: { server?: string; token?: string }): APIClient {
+  const server = opts.server || process.env.CPI_AUTH_SERVER || ''
+  const token = opts.token || process.env.CPI_AUTH_TOKEN || ''
+
+  if (!server) {
+    // Try config file as fallback
+    try {
+      const config = findConfig()
+      return getClient(config)
+    } catch {
+      error('No server specified. Use --server or set CPI_AUTH_SERVER env var.')
+      process.exit(1)
+    }
+  }
+
+  const client = new APIClient({ server })
+  if (token) client.setToken(token)
+
+  // Try saved token
+  const tokenPath = resolve(TOKEN_FILE)
+  if (!token && existsSync(tokenPath)) {
+    client.setToken(readFileSync(tokenPath, 'utf8').trim())
+  }
+
+  return client
+}
+
 export function saveToken(token: string) {
   writeFileSync(resolve(TOKEN_FILE), token, 'utf8')
 }
