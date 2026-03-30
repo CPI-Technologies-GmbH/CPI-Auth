@@ -17,6 +17,7 @@
 	let rememberMe = $state(false);
 	let loading = $state(false);
 	let error = $state('');
+	let loginSuccess = $state(false);
 	let emailError = $state('');
 	let passwordError = $state('');
 
@@ -94,8 +95,9 @@
 			} else if (oauth?.redirect_uri) {
 				redirectTo(oauth.redirect_uri);
 			} else {
-				// No OAuth flow — redirect to admin dashboard
-				redirectTo('/');
+				// No OAuth flow — show success state
+				error = '';
+				loginSuccess = true;
 			}
 		} catch (err) {
 			if (err instanceof ApiClientError) {
@@ -185,6 +187,14 @@
 				{$t('login.title')}
 			</h1>
 		</div>
+
+		{#if loginSuccess}
+			<div class="rounded-lg border border-green-500/30 bg-green-500/10 p-4 text-center">
+				<svg class="mx-auto h-12 w-12 text-green-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+				<h2 class="text-lg font-semibold text-green-400 mb-1">Signed in successfully</h2>
+				<p class="text-sm text-gray-400">You can close this window or return to your application.</p>
+			</div>
+		{:else}
 
 		{#if error}
 			<Alert type="error" message={error.startsWith('login.') ? $t(error) : error} dismissible />
@@ -282,5 +292,6 @@
 			{$t('login.no_account')}
 			<a href={buildLink('/register')} class="af-link">{$t('login.signup_link')}</a>
 		</p>
+		{/if}
 	</div>
 </AuthLayout>
