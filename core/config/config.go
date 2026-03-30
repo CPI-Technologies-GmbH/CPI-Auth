@@ -189,7 +189,7 @@ func DefaultConfig() *Config {
 		Security: SecurityConfig{
 			EncryptionKey:          "",
 			JWTSigningAlgorithm:    "RS256",
-			AccessTokenLifetime:    15 * time.Minute,
+			AccessTokenLifetime:    1 * time.Hour,
 			RefreshTokenLifetime:   7 * 24 * time.Hour,
 			IDTokenLifetime:        1 * time.Hour,
 			AuthCodeLifetime:       10 * time.Minute,
