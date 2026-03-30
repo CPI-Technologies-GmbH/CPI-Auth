@@ -394,16 +394,13 @@ func TestAuthorizeGetHandler_NoUser(t *testing.T) {
 
 	h.AuthorizeGet(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
+	// Should redirect to login page when not authenticated
+	if w.Code != http.StatusFound {
+		t.Errorf("status = %d, want %d (redirect to login)", w.Code, http.StatusFound)
 	}
-
-	var resp map[string]interface{}
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if resp["type"] != "authorization_required" {
-		t.Errorf("type = %v, want %q", resp["type"], "authorization_required")
+	location := w.Header().Get("Location")
+	if location == "" || !strings.Contains(location, "/login") {
+		t.Errorf("Location = %q, want redirect to /login", location)
 	}
 }
 

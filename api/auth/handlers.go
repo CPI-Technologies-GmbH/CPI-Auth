@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 
@@ -144,13 +145,9 @@ func (h *Handler) AuthorizeGet(w http.ResponseWriter, r *http.Request) {
 
 	userID := middleware.GetUserID(r.Context())
 	if userID == uuid.Nil {
-		// Return authorization form / redirect to login
-		middleware.WriteJSON(w, http.StatusOK, map[string]interface{}{
-			"type":      "authorization_required",
-			"client_id": req.ClientID,
-			"scope":     req.Scope,
-			"state":     req.State,
-		})
+		// Redirect to login UI with original OAuth params preserved
+		loginURL := fmt.Sprintf("/login?%s", r.URL.RawQuery)
+		http.Redirect(w, r, loginURL, http.StatusFound)
 		return
 	}
 
