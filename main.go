@@ -76,6 +76,14 @@ func main() {
 	defer pool.Close()
 	logger.Info("connected to PostgreSQL")
 
+	// Auto-migrate database schema
+	if err := db.AutoMigrate(ctx, pool, logger); err != nil {
+		logger.Fatal("auto-migration failed", zap.Error(err))
+	}
+
+	// Bootstrap default tenant with runtime config (domain, etc.)
+	db.Bootstrap(ctx, pool, logger)
+
 	// --- Connect to Redis ---
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     cfg.Redis.Addr(),

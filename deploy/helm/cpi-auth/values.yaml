@@ -4,6 +4,10 @@ global:
   domain: auth.example.com
   # -- Enable TLS for ingress
   tls: true
+  # -- Organization/tenant name
+  tenantName: ""
+  # -- Initial admin password (only applied on first run, replaces default "admin123!")
+  adminPassword: ""
 
 # -- Service account configuration
 serviceAccount:

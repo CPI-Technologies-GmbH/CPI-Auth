@@ -48,10 +48,15 @@ CPI Auth has been deployed successfully!
   DEFAULT ADMIN CREDENTIALS
 =======================================================================
 
-  Email:    admin@example.com
-  Password: admin
+  Email:    admin@cpi-auth.local
+{{- if .Values.global.adminPassword }}
+  Password: (set via --set global.adminPassword)
+{{- else }}
+  Password: admin123!
 
-  IMPORTANT: Change the default admin password immediately after first login!
+  IMPORTANT: Change the default admin password!
+  Set --set global.adminPassword=<your-password> for automatic setup.
+{{- end }}
 
 =======================================================================
   NOTES

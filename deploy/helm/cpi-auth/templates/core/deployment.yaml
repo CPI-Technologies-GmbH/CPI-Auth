@@ -47,8 +47,20 @@ spec:
               value: {{ include "cpi-auth.databaseName" . | quote }}
             - name: AF_REDIS_HOST
               value: {{ include "cpi-auth.redisHost" . | quote }}
+            - name: AF_REDIS_PORT
+              value: "6379"
             - name: AF_NATS_URL
               value: {{ include "cpi-auth.natsURL" . | quote }}
+            - name: AF_PUBLIC_DOMAIN
+              value: {{ .Values.global.domain | quote }}
+            {{- if .Values.global.adminPassword }}
+            - name: AF_ADMIN_PASSWORD
+              value: {{ .Values.global.adminPassword | quote }}
+            {{- end }}
+            {{- if .Values.global.tenantName }}
+            - name: AF_TENANT_NAME
+              value: {{ .Values.global.tenantName | quote }}
+            {{- end }}
             - name: AF_SECURITY_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
