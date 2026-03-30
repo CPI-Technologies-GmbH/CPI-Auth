@@ -99,6 +99,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 	r.Post("/api/v1/auth/login", h.Login)
 	r.Post("/api/v1/auth/register", h.Register)
+	r.Get("/api/v1/auth/logout", h.Logout)
+	r.Post("/api/v1/auth/logout", h.Logout)
 
 	// Device Authorization Flow (RFC 8628) — public endpoints
 	r.Post("/oauth/device/code", h.DeviceCode)
@@ -144,8 +146,22 @@ func (h *Handler) AuthorizeGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := middleware.GetUserID(r.Context())
+
+	// Check session cookie if no JWT auth
 	if userID == uuid.Nil {
-		// Redirect to login UI with original OAuth params preserved
+		if cookie, err := r.Cookie(sessionCookieName); err == nil && cookie.Value != "" {
+			sessionID, parseErr := uuid.Parse(cookie.Value)
+			if parseErr == nil && h.sessionSvc != nil {
+				sess, sessErr := h.sessionSvc.Validate(r.Context(), sessionID)
+				if sessErr == nil && sess != nil {
+					userID = sess.UserID
+				}
+			}
+		}
+	}
+
+	if userID == uuid.Nil {
+		// No valid session — redirect to login UI with OAuth params preserved
 		loginURL := fmt.Sprintf("/login?%s", r.URL.RawQuery)
 		http.Redirect(w, r, loginURL, http.StatusFound)
 		return
@@ -417,6 +433,34 @@ func (h *Handler) SAMLSSO(w http.ResponseWriter, r *http.Request) {
 }
 
 // extractIP returns just the IP address from RemoteAddr (strips port).
+const sessionCookieName = "__cpi_auth_session"
+
+func setSessionCookie(w http.ResponseWriter, r *http.Request, sessionID string, rememberMe bool, cfg *config.Config) {
+	maxAge := 24 * 3600 // 24 hours default
+	if rememberMe {
+		maxAge = 30 * 24 * 3600 // 30 days
+	}
+	if cfg != nil && cfg.Security.SessionLifetime > 0 {
+		maxAge = int(cfg.Security.SessionLifetime.Seconds())
+		if rememberMe {
+			maxAge = maxAge * 30
+			if maxAge > 90*24*3600 {
+				maxAge = 90 * 24 * 3600
+			}
+		}
+	}
+	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    sessionID,
+		Path:     "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
 func extractIP(remoteAddr string) string {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
@@ -518,8 +562,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create session
-	_, err = h.sessionSvc.Create(ctx, sessions.CreateSessionInput{
+	// Create session and set cookie for browser-based flows (OAuth, SSO)
+	sess, err := h.sessionSvc.Create(ctx, sessions.CreateSessionInput{
 		UserID:    user.ID,
 		TenantID:  tenantID,
 		IP:        extractIP(r.RemoteAddr),
@@ -527,6 +571,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.logger.Error("failed to create session", zap.Error(err))
+	}
+	if sess != nil {
+		setSessionCookie(w, r, sess.ID.String(), req.RememberMe, h.cfg)
 	}
 
 	h.eventSvc.Publish(ctx, events.Event{
@@ -598,6 +645,36 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		TokenType:    pair.TokenType,
 		ExpiresIn:    pair.ExpiresIn,
 	})
+}
+
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Revoke session from cookie
+	if cookie, err := r.Cookie(sessionCookieName); err == nil && cookie.Value != "" {
+		sessionID, parseErr := uuid.Parse(cookie.Value)
+		if parseErr == nil && h.sessionSvc != nil {
+			h.sessionSvc.Revoke(r.Context(), sessionID)
+		}
+	}
+
+	// Clear cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https",
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	// Redirect to post-logout URL if provided, otherwise return 200
+	postLogoutURL := r.URL.Query().Get("post_logout_redirect_uri")
+	if postLogoutURL != "" {
+		http.Redirect(w, r, postLogoutURL, http.StatusFound)
+		return
+	}
+
+	middleware.WriteJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {

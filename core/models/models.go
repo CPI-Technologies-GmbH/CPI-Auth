@@ -381,6 +381,7 @@ type TenantSettings struct {
 	InactivityTimeout     int      `json:"inactivity_timeout_minutes" yaml:"inactivity_timeout_minutes"`
 	AllowedSignUpDomains  []string `json:"allowed_signup_domains" yaml:"allowed_signup_domains"`
 	EnableSelfSignUp      bool     `json:"enable_self_signup" yaml:"enable_self_signup"`
+	RememberMeDuration    int      `json:"remember_me_duration_days" yaml:"remember_me_duration_days"`
 }
 
 // PageTemplate represents a tenant-specific page template for auth flows.
