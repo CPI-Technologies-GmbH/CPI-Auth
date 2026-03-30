@@ -93,6 +93,9 @@
 				redirectTo(result.redirect_url);
 			} else if (oauth?.redirect_uri) {
 				redirectTo(oauth.redirect_uri);
+			} else {
+				// No OAuth flow — redirect to admin dashboard
+				redirectTo('/');
 			}
 		} catch (err) {
 			if (err instanceof ApiClientError) {

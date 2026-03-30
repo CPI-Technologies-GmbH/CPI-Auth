@@ -58,8 +58,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Security.JWTSigningAlgorithm != "RS256" {
 		t.Errorf("Security.JWTSigningAlgorithm = %q, want %q", cfg.Security.JWTSigningAlgorithm, "RS256")
 	}
-	if cfg.Security.AccessTokenLifetime != 15*time.Minute {
-		t.Errorf("Security.AccessTokenLifetime = %v, want %v", cfg.Security.AccessTokenLifetime, 15*time.Minute)
+	if cfg.Security.AccessTokenLifetime != 1*time.Hour {
+		t.Errorf("Security.AccessTokenLifetime = %v, want %v", cfg.Security.AccessTokenLifetime, 1*time.Hour)
 	}
 	if cfg.Security.RefreshTokenLifetime != 7*24*time.Hour {
 		t.Errorf("Security.RefreshTokenLifetime = %v, want %v", cfg.Security.RefreshTokenLifetime, 7*24*time.Hour)
