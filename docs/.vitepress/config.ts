@@ -12,6 +12,7 @@ export default defineConfig({
       { text: 'API Reference', link: '/api/authentication' },
       { text: 'Admin UI', link: '/admin/overview' },
       { text: 'CLI & SDK', link: '/cli/overview' },
+      { text: 'AI Integration', link: '/cli/agent-integration' },
     ],
     sidebar: {
       '/guide/': [
@@ -91,6 +92,12 @@ export default defineConfig({
             { text: 'TypeScript SDK', link: '/cli/sdk' },
             { text: 'Design Tokens', link: '/cli/design-tokens' },
             { text: 'Dev Server', link: '/cli/dev-server' },
+          ],
+        },
+        {
+          text: 'Integration',
+          items: [
+            { text: 'AI Agent Integration', link: '/cli/agent-integration' },
           ],
         },
       ],
