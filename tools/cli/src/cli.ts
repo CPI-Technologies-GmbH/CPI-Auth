@@ -2,6 +2,7 @@
 import { Command } from 'commander'
 import { initCommand } from './commands/init.js'
 import { loginCommand } from './commands/login.js'
+import { statusCommand } from './commands/status.js'
 import { setupCommand } from './commands/setup.js'
 import { devCommand } from './commands/dev.js'
 import { pullCommand } from './commands/pull.js'
@@ -21,6 +22,7 @@ const program = new Command()
 
 // Authentication
 program.addCommand(loginCommand())
+program.addCommand(statusCommand())
 
 // Quick setup
 program.addCommand(setupCommand())
