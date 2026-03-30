@@ -735,7 +735,7 @@ export default function PageTemplatesPage() {
         description={`Are you sure you want to delete "${selectedTemplate?.name}"? This action cannot be undone.`}
         onConfirm={() => selectedTemplate && deleteMutation.mutate(selectedTemplate.id)}
         loading={deleteMutation.isPending}
-        destructive
+        variant="destructive"
       />
     </div>
   )

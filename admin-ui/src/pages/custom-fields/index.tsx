@@ -49,7 +49,7 @@ interface FieldFormData {
   description: string
   options: string
   required: boolean
-  visible_on: string
+  visible_on: 'registration' | 'profile' | 'both'
   position: number
 }
 
@@ -251,7 +251,7 @@ export default function CustomFieldsPage() {
           <select
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
             value={formData.visible_on}
-            onChange={(e) => setFormData({ ...formData, visible_on: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, visible_on: e.target.value as 'registration' | 'profile' | 'both' })}
           >
             {visibilityOptions.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
