@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -134,6 +135,7 @@ func (h *Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AuthorizeGet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	req := oauth.AuthorizeRequest{
 		ClientID:            r.URL.Query().Get("client_id"),
 		RedirectURI:         r.URL.Query().Get("redirect_uri"),
@@ -155,6 +157,11 @@ func (h *Handler) AuthorizeGet(w http.ResponseWriter, r *http.Request) {
 				sess, sessErr := h.sessionSvc.Validate(r.Context(), sessionID)
 				if sessErr == nil && sess != nil {
 					userID = sess.UserID
+					// Also set tenant from session if not already resolved
+					if middleware.GetTenantID(r.Context()) == uuid.Nil {
+						ctx = context.WithValue(ctx, middleware.ContextKeyTenantID, sess.TenantID)
+						r = r.WithContext(ctx)
+					}
 				}
 			}
 		}
@@ -167,7 +174,7 @@ func (h *Handler) AuthorizeGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.oauthSvc.Authorize(r.Context(), userID, req)
+	resp, err := h.oauthSvc.Authorize(ctx, userID, req)
 	if err != nil {
 		middleware.WriteError(w, err)
 		return
