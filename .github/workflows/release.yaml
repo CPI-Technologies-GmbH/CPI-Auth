@@ -63,9 +63,10 @@ jobs:
           build-args: |
             VITE_API_URL=
 
-  # ─── npm Packages ───────────────────────────────────
+  # ─── npm Packages (requires NPM_TOKEN secret) ───────
   npm-sdk:
     name: Publish SDK to npm
+    if: secrets.NPM_TOKEN != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,6 +81,7 @@ jobs:
 
   npm-cli:
     name: Publish CLI to npm
+    if: secrets.NPM_TOKEN != ''
     needs: npm-sdk
     runs-on: ubuntu-latest
     steps:
@@ -128,7 +130,7 @@ jobs:
   # ─── GitHub Release ─────────────────────────────────
   release:
     name: Create GitHub Release
-    needs: [docker, helm]
+    needs: [docker]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

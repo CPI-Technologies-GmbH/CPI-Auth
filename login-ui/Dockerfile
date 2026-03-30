@@ -7,6 +7,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 COPY . .
+ENV PUBLIC_API_URL=http://localhost:5050
 RUN npm run build
 RUN npm prune --production
 

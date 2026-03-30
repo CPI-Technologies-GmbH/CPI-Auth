@@ -12,7 +12,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
+# Build with placeholder URL (overridden at runtime via env)
+ENV PUBLIC_API_URL=http://localhost:5050
+ENV PUBLIC_LOGIN_URL=http://localhost:5053/login
 RUN npm run build
 
 # Production stage
