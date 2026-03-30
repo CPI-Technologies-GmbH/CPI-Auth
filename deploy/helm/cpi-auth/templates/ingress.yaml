@@ -29,6 +29,18 @@ spec:
         paths:
           {{- $coreSvc := printf "%s-core" (include "cpi-auth.fullname" .) }}
           {{- $uiSvc := printf "%s-admin-ui" (include "cpi-auth.fullname" .) }}
+          {{- $loginSvc := printf "%s-login-ui" (include "cpi-auth.fullname" .) }}
+          # Login UI routes (SvelteKit — handles OAuth login/consent flow)
+          {{- range list "/login" "/register" "/consent" "/device" "/verify-email" "/forgot-password" "/reset-password" "/error" }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $loginSvc }}
+                port:
+                  number: 5053
+          {{- end }}
+          # API routes → Core backend
           {{- range list "/admin" "/oauth" "/.well-known" "/api" "/passwordless" "/mfa" "/webauthn" "/saml" }}
           - path: {{ . }}
             pathType: Prefix
