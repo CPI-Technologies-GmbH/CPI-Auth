@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
-import { getClientFromFlags, success, error, info } from '../helpers.js'
+import { getClient, success, error, info } from '../helpers.js'
 
 export function appsCommand() {
   const cmd = new Command('apps')
@@ -13,7 +13,7 @@ export function appsCommand() {
     .option('-t, --token <token>', 'Access token')
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       const apps = await client.request<any>('GET', '/admin/applications')
       const list = apps.data || apps
 
@@ -46,7 +46,7 @@ export function appsCommand() {
     .option('-t, --token <token>', 'Access token')
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
 
       const app = await client.request<any>('POST', '/admin/applications', {
         name: opts.name,
@@ -74,7 +74,7 @@ export function appsCommand() {
     .option('-s, --server <url>', 'Server URL')
     .option('-t, --token <token>', 'Access token')
     .action(async (id, opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       await client.request('DELETE', `/admin/applications/${id}`)
       success(`Application ${id} deleted`)
     })
@@ -85,7 +85,7 @@ export function appsCommand() {
     .option('-s, --server <url>', 'Server URL')
     .option('-t, --token <token>', 'Access token')
     .action(async (id, opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       const app = await client.request<any>('POST', `/admin/applications/${id}/rotate-secret`)
       success(`Secret rotated`)
       console.log(`  New secret: ${chalk.yellow(app.client_secret)}`)

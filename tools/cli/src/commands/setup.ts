@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
-import { getClientFromFlags, success, error, info, warn } from '../helpers.js'
+import { getClient, success, error, info, warn } from '../helpers.js'
 
 export function setupCommand() {
   return new Command('setup')
@@ -20,7 +20,7 @@ export function setupCommand() {
     .option('--user-role <role>', 'Assign role to created users')
     .option('--output <format>', 'Output format: env, json, yaml', 'env')
     .action(async (opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
 
       console.log()
       console.log(chalk.bold('  CPI Auth Setup'))

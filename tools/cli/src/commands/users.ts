@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
-import { getClientFromFlags, success, error } from '../helpers.js'
+import { getClient, success, error } from '../helpers.js'
 
 export function usersCommand() {
   const cmd = new Command('users')
@@ -15,7 +15,7 @@ export function usersCommand() {
     .option('--limit <n>', 'Limit results', '20')
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       const params = new URLSearchParams({ per_page: opts.limit })
       if (opts.search) params.set('search', opts.search)
       const res = await client.request<any>('GET', `/admin/users?${params}`)
@@ -45,7 +45,7 @@ export function usersCommand() {
     .option('-t, --token <token>', 'Access token')
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
 
       const user = await client.request<any>('POST', '/admin/users', {
         email: opts.email,
@@ -80,7 +80,7 @@ export function usersCommand() {
     .option('-s, --server <url>', 'Server URL')
     .option('-t, --token <token>', 'Access token')
     .action(async (id, opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       await client.request('DELETE', `/admin/users/${id}`)
       success(`User ${id} deleted`)
     })
@@ -91,7 +91,7 @@ export function usersCommand() {
     .option('-s, --server <url>', 'Server URL')
     .option('-t, --token <token>', 'Access token')
     .action(async (id, opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       await client.request('POST', `/admin/users/${id}/block`)
       success(`User ${id} blocked`)
     })
@@ -102,7 +102,7 @@ export function usersCommand() {
     .option('-s, --server <url>', 'Server URL')
     .option('-t, --token <token>', 'Access token')
     .action(async (id, opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       await client.request('POST', `/admin/users/${id}/unblock`)
       success(`User ${id} unblocked`)
     })

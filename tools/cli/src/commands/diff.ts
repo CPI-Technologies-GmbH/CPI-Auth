@@ -1,14 +1,14 @@
 import { Command } from 'commander'
 import { computeDiff } from '@cpi-auth/sdk'
-import { findConfig, getClient, success, info, warn } from '../helpers.js'
+import { findProjectConfig, getClient, success, info, warn } from '../helpers.js'
 import chalk from 'chalk'
 
 export function diffCommand() {
   return new Command('diff')
     .description('Show differences between local and server')
     .action(async () => {
-      const config = findConfig()
-      const client = getClient(config)
+      const config = { ...findProjectConfig(), server: "", tenant_id: "" } as any
+      const client = getClient()
 
       info('Comparing local vs server...\n')
       const diff = await computeDiff(client, config)

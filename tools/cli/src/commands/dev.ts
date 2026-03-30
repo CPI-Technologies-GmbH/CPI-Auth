@@ -4,8 +4,8 @@ import { readFileSync, existsSync, watch } from 'node:fs'
 import { parse as parseYAML } from 'yaml'
 import { resolve } from 'node:path'
 import chalk from 'chalk'
-import { renderPreview, buildCSS, type LanguageString, type CustomFieldConfig, type DesignTokens, type ProjectConfig } from '@cpi-auth/sdk'
-import { findConfig, info, success } from '../helpers.js'
+import { renderPreview, buildCSS, type LanguageString, type CustomFieldConfig, type DesignTokens } from '@cpi-auth/sdk'
+import { findProjectConfig, info, success } from '../helpers.js'
 
 const PAGE_TYPES = ['login', 'signup', 'verification', 'password_reset', 'mfa_challenge', 'error', 'consent', 'profile']
 
@@ -32,7 +32,7 @@ function loadLocalStringsAsLS(locale: string): LanguageString[] {
   }))
 }
 
-function buildShellHTML(config: ProjectConfig, activePage: string, activeLocale: string): string {
+function buildShellHTML(config: any, activePage: string, activeLocale: string): string {
   const locales = config.locales ?? ['en']
   const templateEntries = config.templates ? Object.keys(config.templates) : []
   const pages = [...new Set([...PAGE_TYPES, ...templateEntries])]
@@ -42,7 +42,7 @@ function buildShellHTML(config: ProjectConfig, activePage: string, activeLocale:
   const sampleData: Record<string, string> = {}
   if (config.preview?.sample_data) {
     for (const [k, v] of Object.entries(config.preview.sample_data)) {
-      sampleData[`{{${k}}}`] = v
+      sampleData[`{{${k}}}`] = String(v)
     }
   }
   const customFields = config.preview?.custom_fields as CustomFieldConfig[] | undefined
@@ -64,7 +64,7 @@ function buildShellHTML(config: ProjectConfig, activePage: string, activeLocale:
     return `<a href="/?page=${p}&locale=${activeLocale}" class="page-btn ${active} ${hasLocal}">${label}</a>`
   }).join('\n            ')
 
-  const localeButtons = locales.map((l) => {
+  const localeButtons = locales.map((l: string) => {
     const active = l === activeLocale ? 'active' : ''
     return `<a href="/?page=${activePage}&locale=${l}" class="locale-btn ${active}">${l.toUpperCase()}</a>`
   }).join(' ')
@@ -148,11 +148,11 @@ export function devCommand() {
     .option('-p, --port <port>', 'Port', '4400')
     .action((opts) => {
       const port = parseInt(opts.port, 10)
-      const config = findConfig()
+      const config = { ...findProjectConfig(), server: "", tenant_id: "" } as any
 
       const server = createServer((req, res) => {
         // Re-read config on every request for hot-reload
-        const freshConfig = findConfig()
+        const freshConfig = findProjectConfig() as any
         const url = new URL(req.url ?? '/', `http://localhost:${port}`)
         const activePage = url.searchParams.get('page') ?? 'login'
         const activeLocale = url.searchParams.get('locale') ?? (freshConfig.locales?.[0] ?? 'en')

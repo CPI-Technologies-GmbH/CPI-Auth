@@ -11,6 +11,7 @@ import (
 
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/api/middleware"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/actions"
+	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/config"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/crypto"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/events"
 	"github.com/CPI-Technologies-GmbH/CPI-Auth/core/federation"
@@ -34,6 +35,8 @@ type Handler struct {
 	eventSvc       *events.Service
 	rbacSvc        *policy.RBACService
 	actionPipeline *actions.Pipeline
+	deviceCodeRepo models.DeviceCodeRepository
+	cfg            *config.Config
 	logger         *zap.Logger
 }
 
@@ -48,6 +51,8 @@ func NewHandler(
 	eventSvc *events.Service,
 	rbacSvc *policy.RBACService,
 	actionPipeline *actions.Pipeline,
+	deviceCodeRepo models.DeviceCodeRepository,
+	cfg *config.Config,
 	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
@@ -60,6 +65,8 @@ func NewHandler(
 		eventSvc:       eventSvc,
 		rbacSvc:        rbacSvc,
 		actionPipeline: actionPipeline,
+		deviceCodeRepo: deviceCodeRepo,
+		cfg:            cfg,
 		logger:         logger,
 	}
 }
@@ -91,6 +98,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 	r.Post("/api/v1/auth/login", h.Login)
 	r.Post("/api/v1/auth/register", h.Register)
+
+	// Device Authorization Flow (RFC 8628) — public endpoints
+	r.Post("/oauth/device/code", h.DeviceCode)
+	r.Post("/oauth/device/token", h.DeviceToken)
 }
 
 // --- OAuth Endpoints ---

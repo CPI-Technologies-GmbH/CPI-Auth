@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import { push } from '@cpi-auth/sdk'
-import { findConfig, getClient, success, info, warn } from '../helpers.js'
+import { findProjectConfig, getClient, success, info, warn } from '../helpers.js'
 
 export function pushCommand() {
   return new Command('push')
@@ -8,8 +8,8 @@ export function pushCommand() {
     .option('--dry-run', 'Show what would change without applying')
     .option('-t, --template <type>', 'Only push a specific template')
     .action(async (opts) => {
-      const config = findConfig()
-      const client = getClient(config)
+      const config = { ...findProjectConfig(), server: "", tenant_id: "" } as any
+      const client = getClient()
 
       if (opts.dryRun) info('Dry run mode — no changes will be applied')
 

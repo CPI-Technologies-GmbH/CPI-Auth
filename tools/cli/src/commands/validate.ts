@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { parse as parseYAML } from 'yaml'
 import chalk from 'chalk'
 import { validateContrasts } from '@cpi-auth/sdk'
-import { findConfig, success, warn, error, info } from '../helpers.js'
+import { findProjectConfig, success, warn, error, info } from '../helpers.js'
 
 function flattenStrings(obj: Record<string, unknown>, prefix = ''): Record<string, string> {
   const result: Record<string, string> = {}
@@ -22,7 +22,7 @@ export function validateCommand() {
   return new Command('validate')
     .description('Validate templates, strings, and tokens')
     .action(() => {
-      const config = findConfig()
+      const config = findProjectConfig()
       let errors = 0
 
       console.log(chalk.bold('\nValidation Report\n'))

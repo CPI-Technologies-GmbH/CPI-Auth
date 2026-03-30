@@ -2,7 +2,7 @@ import { Command } from 'commander'
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { parse as parseYAML, stringify as stringifyYAML } from 'yaml'
 import chalk from 'chalk'
-import { findConfig, getClient, success, info, warn } from '../helpers.js'
+import { findProjectConfig, getClient, success, info, warn } from '../helpers.js'
 
 export function stringsCommand() {
   const cmd = new Command('strings').description('Manage language strings')
@@ -12,8 +12,8 @@ export function stringsCommand() {
     .description('List all strings for a locale')
     .option('-l, --locale <locale>', 'Locale', 'en')
     .action(async (opts) => {
-      const config = findConfig()
-      const client = getClient(config)
+      const config = findProjectConfig()
+      const client = getClient()
       const strings = await client.listStrings(opts.locale)
 
       // Group by prefix
@@ -38,8 +38,8 @@ export function stringsCommand() {
     .description('Add or update a language string')
     .option('-l, --locale <locale>', 'Locale', 'en')
     .action(async (key, value, opts) => {
-      const config = findConfig()
-      const client = getClient(config)
+      const config = findProjectConfig()
+      const client = getClient()
       await client.upsertString({ string_key: key, locale: opts.locale, value })
       success(`Set ${key} (${opts.locale}) = "${value}"`)
     })
@@ -48,8 +48,8 @@ export function stringsCommand() {
     .command('sync')
     .description('Find missing translations across locales')
     .action(async () => {
-      const config = findConfig()
-      const client = getClient(config)
+      const config = findProjectConfig()
+      const client = getClient()
       const locales = config.locales ?? ['en']
 
       const allKeys = new Set<string>()
@@ -85,8 +85,8 @@ export function stringsCommand() {
     .description('Export strings as CSV')
     .option('-o, --output <file>', 'Output file', 'strings.csv')
     .action(async (opts) => {
-      const config = findConfig()
-      const client = getClient(config)
+      const config = findProjectConfig()
+      const client = getClient()
       const locales = config.locales ?? ['en']
 
       const data: Record<string, Record<string, string>> = {}

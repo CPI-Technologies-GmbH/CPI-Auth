@@ -15,6 +15,7 @@ func Bootstrap(ctx context.Context, pool *pgxpool.Pool, logger *zap.Logger) {
 	bootstrapTenantDomain(ctx, pool, logger)
 	bootstrapAdminPassword(ctx, pool, logger)
 	bootstrapTenantName(ctx, pool, logger)
+	bootstrapCLIApplication(ctx, pool, logger)
 }
 
 // bootstrapTenantDomain sets the default tenant's domain from AF_PUBLIC_DOMAIN.
@@ -88,4 +89,44 @@ func bootstrapTenantName(ctx context.Context, pool *pgxpool.Pool, logger *zap.Lo
 		AND name = 'Default Tenant'
 	`, name)
 	logger.Info("bootstrap: tenant name configured", zap.String("name", name))
+}
+
+// bootstrapCLIApplication ensures a CLI application exists for device authorization flow.
+func bootstrapCLIApplication(ctx context.Context, pool *pgxpool.Pool, logger *zap.Logger) {
+	// Check if the CLI application already exists
+	var exists bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM applications WHERE client_id = 'cpi-auth-cli'
+		)
+	`).Scan(&exists)
+	if err != nil {
+		logger.Warn("failed to check for CLI application", zap.Error(err))
+		return
+	}
+	if exists {
+		return
+	}
+
+	// Get the first tenant
+	var tenantID string
+	err = pool.QueryRow(ctx, `
+		SELECT id FROM tenants ORDER BY created_at ASC LIMIT 1
+	`).Scan(&tenantID)
+	if err != nil {
+		logger.Warn("failed to get default tenant for CLI app bootstrap", zap.Error(err))
+		return
+	}
+
+	_, err = pool.Exec(ctx, `
+		INSERT INTO applications (id, tenant_id, name, type, client_id, grant_types, is_active, redirect_uris, allowed_origins, post_logout_redirect_uris, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1, 'CPI Auth CLI', 'spa', 'cpi-auth-cli',
+			ARRAY['urn:ietf:params:oauth:grant-type:device_code'],
+			true, '{}', '{}', '{}', NOW(), NOW())
+	`, tenantID)
+	if err != nil {
+		logger.Warn("failed to create CLI application", zap.Error(err))
+		return
+	}
+	logger.Info("bootstrap: CLI application created for device authorization flow")
 }

@@ -252,9 +252,18 @@ func main() {
 		r.Handle(cfg.Metrics.Path, promhttp.Handler())
 	}
 
+	// --- Initialize Device Code Repository ---
+	deviceCodeRepo := db.NewDeviceCodeRepository(pool)
+
 	// --- Auth Routes (public) ---
-	authHandler := authAPI.NewHandler(oauthSvc, userSvc, tokenSvc, sessionSvc, mfaSvc, webauthnSvc, eventSvc, rbacSvc, actionPipeline, logger)
+	authHandler := authAPI.NewHandler(oauthSvc, userSvc, tokenSvc, sessionSvc, mfaSvc, webauthnSvc, eventSvc, rbacSvc, actionPipeline, deviceCodeRepo, cfg, logger)
 	authHandler.RegisterRoutes(r)
+
+	// Device authorization (authenticated endpoint)
+	r.Group(func(r chi.Router) {
+		r.Use(mw.Authentication(tokenSvc))
+		r.Post("/oauth/device/authorize", authHandler.DeviceAuthorize)
+	})
 
 	// --- Admin Routes (all under /admin) ---
 	r.Route("/admin", func(r chi.Router) {

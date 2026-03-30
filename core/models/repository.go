@@ -248,3 +248,13 @@ type LanguageStringRepository interface {
 	Delete(ctx context.Context, tenantID uuid.UUID, stringKey, locale string) error
 	GetByKeys(ctx context.Context, tenantID uuid.UUID, keys []string, locale string) (map[string]string, error)
 }
+
+// DeviceCodeRepository defines storage operations for RFC 8628 device authorization codes.
+type DeviceCodeRepository interface {
+	Create(ctx context.Context, dc *DeviceCode) error
+	GetByDeviceCode(ctx context.Context, deviceCode string) (*DeviceCode, error)
+	GetByUserCode(ctx context.Context, userCode string) (*DeviceCode, error)
+	Authorize(ctx context.Context, userCode string, userID uuid.UUID) error
+	Deny(ctx context.Context, userCode string) error
+	DeleteExpired(ctx context.Context) error
+}

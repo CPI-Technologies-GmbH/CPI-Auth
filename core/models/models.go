@@ -408,6 +408,21 @@ type LanguageString struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
+// DeviceCode represents an RFC 8628 device authorization grant.
+type DeviceCode struct {
+	ID           uuid.UUID  `json:"id" db:"id"`
+	TenantID     uuid.UUID  `json:"tenant_id" db:"tenant_id"`
+	DeviceCode   string     `json:"-" db:"device_code"`
+	UserCode     string     `json:"user_code" db:"user_code"`
+	ClientID     string     `json:"client_id" db:"client_id"`
+	Scopes       []string   `json:"scopes" db:"scopes"`
+	Status       string     `json:"status" db:"status"`
+	UserID       *uuid.UUID `json:"user_id,omitempty" db:"user_id"`
+	ExpiresAt    time.Time  `json:"expires_at" db:"expires_at"`
+	PollInterval int        `json:"interval" db:"poll_interval"`
+	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
+}
+
 // DefaultTenantSettings returns sane defaults.
 func DefaultTenantSettings() TenantSettings {
 	return TenantSettings{

@@ -1,10 +1,11 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { resolve, join } from 'node:path'
+import { resolve } from 'node:path'
 import { parse as parseYAML, stringify as stringifyYAML } from 'yaml'
 import chalk from 'chalk'
-import { APIClient, loadConfig, type ProjectConfig } from '@cpi-auth/sdk'
+import { getAuthenticatedClient, migrateOldToken } from './config.js'
+import type { APIClient } from '@cpi-auth/sdk'
 
-const TOKEN_FILE = '.cpi-auth-token'
+// ─── Logging ──────────────────────────────────────────────────
 
 export function log(msg: string) { console.log(msg) }
 export function info(msg: string) { console.log(chalk.blue('ℹ'), msg) }
@@ -12,61 +13,7 @@ export function success(msg: string) { console.log(chalk.green('✓'), msg) }
 export function warn(msg: string) { console.log(chalk.yellow('⚠'), msg) }
 export function error(msg: string) { console.error(chalk.red('✗'), msg) }
 
-export function findConfig(): ProjectConfig {
-  const configPath = resolve('cpi-auth.config.yaml')
-  if (!existsSync(configPath)) {
-    error('cpi-auth.config.yaml not found. Run `cpi-auth init` first.')
-    process.exit(1)
-  }
-  return loadConfig(configPath)
-}
-
-export function getClient(config: ProjectConfig): APIClient {
-  const tokenPath = resolve(TOKEN_FILE)
-  const client = new APIClient({
-    server: config.server,
-    tenantId: config.tenant_id,
-  })
-
-  if (existsSync(tokenPath)) {
-    const token = readFileSync(tokenPath, 'utf8').trim()
-    client.setToken(token)
-  }
-
-  return client
-}
-
-// getClientFromFlags creates a client from CLI flags (no config file needed)
-export function getClientFromFlags(opts: { server?: string; token?: string }): APIClient {
-  const server = opts.server || process.env.CPI_AUTH_SERVER || ''
-  const token = opts.token || process.env.CPI_AUTH_TOKEN || ''
-
-  if (!server) {
-    // Try config file as fallback
-    try {
-      const config = findConfig()
-      return getClient(config)
-    } catch {
-      error('No server specified. Use --server or set CPI_AUTH_SERVER env var.')
-      process.exit(1)
-    }
-  }
-
-  const client = new APIClient({ server })
-  if (token) client.setToken(token)
-
-  // Try saved token
-  const tokenPath = resolve(TOKEN_FILE)
-  if (!token && existsSync(tokenPath)) {
-    client.setToken(readFileSync(tokenPath, 'utf8').trim())
-  }
-
-  return client
-}
-
-export function saveToken(token: string) {
-  writeFileSync(resolve(TOKEN_FILE), token, 'utf8')
-}
+// ─── YAML Helpers ─────────────────────────────────────────────
 
 export function loadYAML<T = unknown>(path: string): T {
   return parseYAML(readFileSync(path, 'utf8'))
@@ -74,4 +21,43 @@ export function loadYAML<T = unknown>(path: string): T {
 
 export function saveYAML(path: string, data: unknown) {
   writeFileSync(path, stringifyYAML(data, { lineWidth: 120 }), 'utf8')
+}
+
+// ─── Auth Client ──────────────────────────────────────────────
+
+export function getClient(opts?: { server?: string; token?: string }): APIClient {
+  // Auto-migrate old .cpi-auth-token on first use
+  migrateOldToken()
+
+  try {
+    return getAuthenticatedClient(opts)
+  } catch (e: any) {
+    error(e.message)
+    process.exit(1)
+  }
+}
+
+// ─── Project Config (template development only) ───────────────
+
+export interface ProjectConfig {
+  tokens?: Record<string, Record<string, string>>
+  templates?: Record<string, { html: string; css: string }>
+  locales?: string[]
+  preview?: {
+    custom_fields?: Array<{ label: string; type: string; required?: boolean; placeholder?: string; options?: string[] }>
+    sample_data?: Record<string, string>
+  }
+  // Legacy fields (ignored, kept for backward compat)
+  server?: string
+  tenant_id?: string
+}
+
+export function findProjectConfig(): ProjectConfig {
+  const configPath = resolve('cpi-auth.config.yaml')
+  if (!existsSync(configPath)) {
+    error('cpi-auth.config.yaml not found in current directory.')
+    error('Run `cpi-auth templates init` to create a template project.')
+    process.exit(1)
+  }
+  return parseYAML(readFileSync(configPath, 'utf8'))
 }

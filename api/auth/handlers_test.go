@@ -248,7 +248,7 @@ func testAuthHandler() (*Handler, *mockAppRepoAuth, *mockUserRepoAuth, *tokens.S
 	oauthSvc := oauth.NewService(appRepo, grantRepo, userRepo, tokenSvc, nil, nil, cfg, logger)
 	eventSvc := events.NewService(nil, &mockAuditLogRepoAuth{}, &mockWebhookRepoAuth{}, logger)
 
-	h := NewHandler(oauthSvc, nil, tokenSvc, nil, nil, nil, eventSvc, nil, nil, logger)
+	h := NewHandler(oauthSvc, nil, tokenSvc, nil, nil, nil, eventSvc, nil, nil, nil, nil, logger)
 	return h, appRepo, userRepo, tokenSvc
 }
 

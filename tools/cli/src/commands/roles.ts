@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
-import { getClientFromFlags, success } from '../helpers.js'
+import { getClient, success } from '../helpers.js'
 
 export function rolesCommand() {
   const cmd = new Command('roles')
@@ -13,7 +13,7 @@ export function rolesCommand() {
     .option('-t, --token <token>', 'Access token')
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       const res = await client.request<any>('GET', '/admin/roles')
       const roles = res.data || res
 
@@ -40,7 +40,7 @@ export function rolesCommand() {
     .option('-s, --server <url>', 'Server URL')
     .option('-t, --token <token>', 'Access token')
     .action(async (opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       const role = await client.request<any>('POST', '/admin/roles', {
         name: opts.name,
         description: opts.description || '',
@@ -56,7 +56,7 @@ export function rolesCommand() {
     .option('-t, --token <token>', 'Access token')
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       const res = await client.request<any>('GET', '/admin/permissions')
       const perms = res.data || res
 
@@ -80,7 +80,7 @@ export function rolesCommand() {
     .option('-s, --server <url>', 'Server URL')
     .option('-t, --token <token>', 'Access token')
     .action(async (opts) => {
-      const client = getClientFromFlags(opts)
+      const client = getClient(opts)
       const perm = await client.request<any>('POST', '/admin/permissions', {
         name: opts.name,
         display_name: opts.displayName || opts.name.replace(/[:.]/g, ' '),

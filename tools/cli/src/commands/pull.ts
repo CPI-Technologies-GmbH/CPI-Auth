@@ -2,14 +2,14 @@ import { Command } from 'commander'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { stringify as stringifyYAML } from 'yaml'
 import { pull } from '@cpi-auth/sdk'
-import { findConfig, getClient, success, info } from '../helpers.js'
+import { findProjectConfig, getClient, success, info } from '../helpers.js'
 
 export function pullCommand() {
   return new Command('pull')
     .description('Pull templates and strings from the server')
     .action(async () => {
-      const config = findConfig()
-      const client = getClient(config)
+      const config = { ...findProjectConfig(), server: "", tenant_id: "" } as any
+      const client = getClient()
 
       info('Pulling from server...')
       const result = await pull(client, config)

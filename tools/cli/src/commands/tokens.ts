@@ -2,7 +2,7 @@ import { Command } from 'commander'
 import { writeFileSync } from 'node:fs'
 import chalk from 'chalk'
 import { buildCSS, validateContrasts } from '@cpi-auth/sdk'
-import { findConfig, success, info, warn } from '../helpers.js'
+import { findProjectConfig, success, info, warn } from '../helpers.js'
 
 export function tokensCommand() {
   const cmd = new Command('tokens').description('Manage design tokens')
@@ -12,7 +12,7 @@ export function tokensCommand() {
     .description('Generate _tokens.css from config')
     .option('-o, --output <file>', 'Output file', 'templates/_tokens.css')
     .action((opts) => {
-      const config = findConfig()
+      const config = findProjectConfig()
       if (!config.tokens) {
         warn('No tokens defined in cpi-auth.config.yaml')
         return
@@ -27,7 +27,7 @@ export function tokensCommand() {
     .command('validate')
     .description('Check color contrast ratios (WCAG)')
     .action(() => {
-      const config = findConfig()
+      const config = findProjectConfig()
       if (!config.tokens?.colors) {
         warn('No color tokens defined')
         return
