@@ -66,7 +66,7 @@ jobs:
   # ─── npm Packages (requires NPM_TOKEN secret) ───────
   npm-sdk:
     name: Publish SDK to npm
-    if: secrets.NPM_TOKEN != ''
+    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
 
   npm-cli:
     name: Publish CLI to npm
-    if: secrets.NPM_TOKEN != ''
+    continue-on-error: true
     needs: npm-sdk
     runs-on: ubuntu-latest
     steps:
