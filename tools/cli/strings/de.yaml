@@ -1,0 +1,19 @@
+login:
+  title: Willkommen zurueck
+  subtitle: Melden Sie sich an
+  email: E-Mail-Adresse
+  password: Passwort
+  submit: Anmelden
+signup:
+  title: Konto erstellen
+  subtitle: Starten Sie in Sekunden
+  name: Name
+  email: E-Mail
+  password: Passwort
+  submit: Registrieren
+profile:
+  title: Ihr Profil
+  subtitle: Kontoeinstellungen verwalten
+  name: Name
+  email: E-Mail
+  save: Speichern

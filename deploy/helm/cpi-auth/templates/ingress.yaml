@@ -1,0 +1,69 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "cpi-auth.fullname" . }}
+  labels:
+    {{- include "cpi-auth.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if or .Values.global.tls .Values.ingress.tls }}
+  tls:
+    {{- if .Values.ingress.tls }}
+    {{- toYaml .Values.ingress.tls | nindent 4 }}
+    {{- else }}
+    - secretName: {{ include "cpi-auth.fullname" . }}-tls
+      hosts:
+        - {{ .Values.global.domain }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- $fullName := include "cpi-auth.fullname" . }}
+    {{- $domain := .Values.global.domain }}
+    {{- range .Values.ingress.hosts }}
+    - host: {{ default $domain .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          {{- if eq .service "core" }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          {{- else if eq .service "login-ui" }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-login-ui
+                port:
+                  number: 5053
+          {{- else if eq .service "admin-ui" }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-admin-ui
+                port:
+                  number: 5054
+          {{- else if eq .service "account-ui" }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-account-ui
+                port:
+                  number: 5055
+          {{- end }}
+          {{- end }}
+    {{- end }}
+{{- end }}

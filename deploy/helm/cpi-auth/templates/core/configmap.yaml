@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cpi-auth.fullname" . }}-core-config
+  labels:
+    {{- include "cpi-auth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: core
+data:
+  config.yaml: |
+    server:
+      host: {{ .Values.core.config.server.host | quote }}
+      port: {{ .Values.core.config.server.port }}
+    database:
+      host: {{ include "cpi-auth.databaseHost" . | quote }}
+      port: {{ include "cpi-auth.databasePort" . }}
+      name: {{ include "cpi-auth.databaseName" . | quote }}
+      user: {{ include "cpi-auth.databaseUser" . | quote }}
+      sslmode: disable
+    redis:
+      address: {{ include "cpi-auth.redisHost" . | quote }}
+    nats:
+      url: {{ include "cpi-auth.natsURL" . | quote }}
+    smtp:
+      host: {{ .Values.core.config.smtp.host | quote }}
+      port: {{ .Values.core.config.smtp.port }}
+      username: {{ .Values.core.config.smtp.username | quote }}
+      from: {{ .Values.core.config.smtp.from | quote }}
+      encryption: {{ .Values.core.config.smtp.encryption | quote }}
+    webauthn:
+      rpDisplayName: {{ .Values.core.config.webauthn.rpDisplayName | quote }}
+      rpID: {{ default .Values.global.domain .Values.core.config.webauthn.rpID | quote }}
+      rpOrigins:
+      {{- if .Values.core.config.webauthn.rpOrigins }}
+        {{- toYaml .Values.core.config.webauthn.rpOrigins | nindent 8 }}
+      {{- else }}
+        - {{ printf "%s://%s" (ternary "https" "http" .Values.global.tls) .Values.global.domain | quote }}
+      {{- end }}

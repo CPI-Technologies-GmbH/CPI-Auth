@@ -1,0 +1,19 @@
+{{- if .Values.adminUI.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cpi-auth.fullname" . }}-admin-ui
+  labels:
+    {{- include "cpi-auth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin-ui
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5054
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "cpi-auth.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: admin-ui
+{{- end }}

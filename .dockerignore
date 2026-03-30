@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+bin/
+dist/
+build/
+.svelte-kit/
+
+# UI source (not needed for core build)
+login-ui/
+admin-ui/
+account-ui/
+sdks/
+docs/
+tests/
+tools/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+
+# Docker
+docker-compose*.yml
+Dockerfile
+
+# Environment
+.env*
+
+# OS
+.DS_Store

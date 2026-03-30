@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "cpi-auth.fullname" . }}-test-connection"
+  labels:
+    {{- include "cpi-auth.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: curl-test
+      image: curlimages/curl:latest
+      command:
+        - curl
+        - --fail
+        - --silent
+        - --show-error
+        - --max-time
+        - "10"
+        - "http://{{ include "cpi-auth.fullname" . }}-core:5050/health"

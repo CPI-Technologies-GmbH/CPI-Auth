@@ -1,0 +1,255 @@
+# -- Global configuration shared across all components
+global:
+  # -- Base domain for the CPI Auth deployment
+  domain: auth.example.com
+  # -- Enable TLS for ingress
+  tls: true
+
+# -- Service account configuration
+serviceAccount:
+  # -- Create a service account
+  create: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- Name override (defaults to fullname)
+  name: ""
+
+# =============================================================================
+# Core Backend (Go)
+# =============================================================================
+core:
+  image:
+    repository: ghcr.io/cpi-technologies-gmbh/cpi-auth
+    tag: ""  # -- Defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+  # -- Number of replicas
+  replicas: 1
+  # -- Resource requests and limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # -- Autoscaling configuration
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  # -- Application configuration rendered into config.yaml
+  config:
+    server:
+      host: "0.0.0.0"
+      port: 5050
+    security:
+      # -- Encryption key for sensitive data (auto-generated if empty)
+      encryptionKey: ""
+      # -- JWT private key in PEM format (provide via secret in production)
+      jwtPrivateKey: ""
+    smtp:
+      host: ""
+      port: 587
+      username: ""
+      password: ""
+      from: "noreply@example.com"
+      encryption: "tls"
+    webauthn:
+      rpDisplayName: "CPI Auth"
+      rpID: ""  # -- Defaults to global.domain
+      rpOrigins: []  # -- Defaults to ["https://<global.domain>"]
+
+# =============================================================================
+# Login UI (SvelteKit)
+# =============================================================================
+loginUI:
+  # -- Enable the Login UI
+  enabled: true
+  image:
+    repository: ghcr.io/cpi-technologies-gmbh/cpi-auth-login-ui
+    tag: ""  # -- Defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+  # -- Number of replicas
+  replicas: 1
+  # -- Resource requests and limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# =============================================================================
+# Admin UI (React / Nginx)
+# =============================================================================
+adminUI:
+  # -- Enable the Admin UI
+  enabled: true
+  image:
+    repository: ghcr.io/cpi-technologies-gmbh/cpi-auth-admin-ui
+    tag: ""  # -- Defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+  # -- Number of replicas
+  replicas: 1
+  # -- Resource requests and limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# =============================================================================
+# Account UI (SvelteKit)
+# =============================================================================
+accountUI:
+  # -- Enable the Account UI
+  enabled: true
+  image:
+    repository: ghcr.io/cpi-technologies-gmbh/cpi-auth-account-ui
+    tag: ""  # -- Defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+  # -- Number of replicas
+  replicas: 1
+  # -- Resource requests and limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# =============================================================================
+# Ingress
+# =============================================================================
+ingress:
+  # -- Enable ingress
+  enabled: true
+  # -- Ingress class name (e.g., nginx, traefik)
+  className: nginx
+  # -- Annotations for the ingress resource
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  # -- Ingress hosts configuration
+  hosts:
+    - host: ""  # -- Defaults to global.domain
+      paths:
+        - path: /
+          pathType: Prefix
+          service: core
+        - path: /login
+          pathType: Prefix
+          service: login-ui
+        - path: /admin
+          pathType: Prefix
+          service: admin-ui
+        - path: /account
+          pathType: Prefix
+          service: account-ui
+  # -- TLS configuration (auto-configured if global.tls is true)
+  tls: []
+  #  - secretName: cpi-auth-tls
+  #    hosts:
+  #      - auth.example.com
+
+# =============================================================================
+# PostgreSQL
+# =============================================================================
+postgresql:
+  # -- Deploy an in-cluster PostgreSQL instance
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  # -- Persistent volume storage size
+  storage: 10Gi
+  # -- Storage class name (empty = default)
+  storageClassName: ""
+  # -- PostgreSQL authentication
+  auth:
+    database: cpi_auth
+    username: cpi_auth
+    # -- Password (auto-generated if empty)
+    password: ""
+    postgresPassword: ""
+  # -- Resource requests and limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # -- Use an external PostgreSQL instance instead
+  external:
+    # -- Enable external PostgreSQL (disables in-cluster)
+    enabled: false
+    host: ""
+    port: 5432
+    database: cpi_auth
+    username: cpi_auth
+    password: ""
+
+# =============================================================================
+# Redis
+# =============================================================================
+redis:
+  # -- Deploy an in-cluster Redis instance
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  # -- Persistent volume storage size
+  storage: 2Gi
+  # -- Storage class name (empty = default)
+  storageClassName: ""
+  # -- Resource requests and limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  # -- Use an external Redis instance instead
+  external:
+    # -- Enable external Redis (disables in-cluster)
+    enabled: false
+    host: ""
+    port: 6379
+
+# =============================================================================
+# NATS
+# =============================================================================
+nats:
+  # -- Deploy an in-cluster NATS instance with JetStream
+  enabled: true
+  image:
+    repository: nats
+    tag: "2-alpine"
+    pullPolicy: IfNotPresent
+  # -- Persistent volume storage size for JetStream
+  storage: 2Gi
+  # -- Storage class name (empty = default)
+  storageClassName: ""
+  # -- Resource requests and limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  # -- Use an external NATS instance instead
+  external:
+    # -- Enable external NATS (disables in-cluster)
+    enabled: false
+    url: ""

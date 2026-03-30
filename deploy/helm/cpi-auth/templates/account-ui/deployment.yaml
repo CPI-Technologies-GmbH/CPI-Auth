@@ -1,0 +1,53 @@
+{{- if .Values.accountUI.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cpi-auth.fullname" . }}-account-ui
+  labels:
+    {{- include "cpi-auth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: account-ui
+spec:
+  replicas: {{ .Values.accountUI.replicas }}
+  selector:
+    matchLabels:
+      {{- include "cpi-auth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: account-ui
+  template:
+    metadata:
+      labels:
+        {{- include "cpi-auth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: account-ui
+    spec:
+      serviceAccountName: {{ include "cpi-auth.serviceAccountName" . }}
+      containers:
+        - name: account-ui
+          image: "{{ .Values.accountUI.image.repository }}:{{ .Values.accountUI.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.accountUI.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 5055
+              protocol: TCP
+          env:
+            - name: PUBLIC_API_URL
+              value: "http://{{ include "cpi-auth.fullname" . }}-core:5050"
+            - name: PUBLIC_LOGIN_URL
+              value: "{{ ternary "https" "http" .Values.global.tls }}://{{ .Values.global.domain }}/login"
+            - name: PORT
+              value: "5055"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          {{- with .Values.accountUI.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

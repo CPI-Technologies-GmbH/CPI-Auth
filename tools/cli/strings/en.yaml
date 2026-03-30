@@ -1,0 +1,20 @@
+login:
+  title: Welcome back
+  subtitle: Sign in to your account
+  email: Email address
+  password: Password
+  submit: Sign in
+  forgot_password: Forgot password?
+signup:
+  title: Create your account
+  subtitle: Get started in seconds
+  name: Full name
+  email: Email address
+  password: Password
+  submit: Create account
+profile:
+  title: Your Profile
+  subtitle: Manage your account settings
+  name: Full name
+  email: Email address
+  save: Save changes

@@ -1,0 +1,288 @@
+@import 'tailwindcss';
+
+@theme {
+	--font-sans: var(--af-font-family, 'Inter', ui-sans-serif, system-ui, sans-serif);
+}
+
+:root {
+	--af-color-primary: #4f46e5;
+	--af-color-primary-hover: #4338ca;
+	--af-color-primary-light: #eef2ff;
+	--af-color-secondary: #6b7280;
+	--af-color-background: #ffffff;
+	--af-color-surface: #f9fafb;
+	--af-color-text: #111827;
+	--af-color-text-muted: #6b7280;
+	--af-color-text-inverted: #ffffff;
+	--af-color-border: #e5e7eb;
+	--af-color-error: #ef4444;
+	--af-color-error-light: #fef2f2;
+	--af-color-success: #10b981;
+	--af-color-success-light: #ecfdf5;
+	--af-color-warning: #f59e0b;
+	--af-color-warning-light: #fffbeb;
+	--af-color-info: #3b82f6;
+	--af-color-info-light: #eff6ff;
+	--af-border-radius: 0.5rem;
+	--af-font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+	--af-logo-url: '';
+	--af-logo-dark-url: '';
+}
+
+.dark {
+	--af-color-primary: #818cf8;
+	--af-color-primary-hover: #6366f1;
+	--af-color-primary-light: #1e1b4b;
+	--af-color-secondary: #9ca3af;
+	--af-color-background: #111827;
+	--af-color-surface: #1f2937;
+	--af-color-text: #f9fafb;
+	--af-color-text-muted: #9ca3af;
+	--af-color-text-inverted: #111827;
+	--af-color-border: #374151;
+	--af-color-error: #f87171;
+	--af-color-error-light: #450a0a;
+	--af-color-success: #34d399;
+	--af-color-success-light: #064e3b;
+	--af-color-warning: #fbbf24;
+	--af-color-warning-light: #451a03;
+	--af-color-info: #60a5fa;
+	--af-color-info-light: #1e3a5f;
+}
+
+* {
+	font-family: var(--af-font-family);
+}
+
+body {
+	background-color: var(--af-color-background);
+	color: var(--af-color-text);
+	min-height: 100vh;
+}
+
+/* Focus styles for accessibility */
+*:focus-visible {
+	outline: 2px solid var(--af-color-primary);
+	outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+	width: 6px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--af-color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--af-color-border);
+	border-radius: 3px;
+}
+
+/* Smooth transitions for theme changes */
+body,
+.theme-transition,
+.theme-transition * {
+	transition:
+		background-color 0.2s ease,
+		color 0.2s ease,
+		border-color 0.2s ease;
+}
+
+/* Input base styles */
+.af-input {
+	width: 100%;
+	padding: 0.625rem 0.875rem;
+	border: 1px solid var(--af-color-border);
+	border-radius: var(--af-border-radius);
+	background-color: var(--af-color-background);
+	color: var(--af-color-text);
+	font-size: 0.875rem;
+	line-height: 1.25rem;
+	transition: all 0.15s ease;
+}
+
+.af-input:focus {
+	outline: none;
+	border-color: var(--af-color-primary);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--af-color-primary) 20%, transparent);
+}
+
+.af-input::placeholder {
+	color: var(--af-color-text-muted);
+}
+
+.af-input:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.af-input.error {
+	border-color: var(--af-color-error);
+}
+
+.af-input.error:focus {
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--af-color-error) 20%, transparent);
+}
+
+/* Button base styles */
+.af-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.625rem 1.25rem;
+	border-radius: var(--af-border-radius);
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1.25rem;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	border: 1px solid transparent;
+	text-decoration: none;
+}
+
+.af-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.af-btn-primary {
+	background-color: var(--af-color-primary);
+	color: var(--af-color-text-inverted);
+}
+
+.af-btn-primary:hover:not(:disabled) {
+	background-color: var(--af-color-primary-hover);
+}
+
+.af-btn-secondary {
+	background-color: transparent;
+	color: var(--af-color-text);
+	border-color: var(--af-color-border);
+}
+
+.af-btn-secondary:hover:not(:disabled) {
+	background-color: var(--af-color-surface);
+}
+
+.af-btn-ghost {
+	background-color: transparent;
+	color: var(--af-color-primary);
+}
+
+.af-btn-ghost:hover:not(:disabled) {
+	background-color: var(--af-color-primary-light);
+}
+
+.af-btn-danger {
+	background-color: var(--af-color-error);
+	color: white;
+}
+
+.af-btn-danger:hover:not(:disabled) {
+	opacity: 0.9;
+}
+
+/* Card styles */
+.af-card {
+	background-color: var(--af-color-background);
+	border: 1px solid var(--af-color-border);
+	border-radius: calc(var(--af-border-radius) * 1.5);
+	padding: 2rem;
+	box-shadow:
+		0 1px 3px 0 rgb(0 0 0 / 0.1),
+		0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Label styles */
+.af-label {
+	display: block;
+	font-size: 0.875rem;
+	font-weight: 500;
+	color: var(--af-color-text);
+	margin-bottom: 0.375rem;
+}
+
+/* Link styles */
+.af-link {
+	color: var(--af-color-primary);
+	text-decoration: none;
+	font-weight: 500;
+	transition: opacity 0.15s ease;
+}
+
+.af-link:hover {
+	opacity: 0.8;
+	text-decoration: underline;
+}
+
+/* Divider with text */
+.af-divider {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	color: var(--af-color-text-muted);
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.af-divider::before,
+.af-divider::after {
+	content: '';
+	flex: 1;
+	height: 1px;
+	background-color: var(--af-color-border);
+}
+
+/* Checkbox styles */
+.af-checkbox {
+	width: 1rem;
+	height: 1rem;
+	border: 1px solid var(--af-color-border);
+	border-radius: 0.25rem;
+	accent-color: var(--af-color-primary);
+	cursor: pointer;
+}
+
+/* Animation for page transitions */
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-fade-in {
+	animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.animate-spin {
+	animation: spin 0.8s linear infinite;
+}
+
+/* Password strength bar colors */
+.strength-weak {
+	background-color: var(--af-color-error);
+}
+.strength-fair {
+	background-color: var(--af-color-warning);
+}
+.strength-good {
+	background-color: var(--af-color-info);
+}
+.strength-strong {
+	background-color: var(--af-color-success);
+}

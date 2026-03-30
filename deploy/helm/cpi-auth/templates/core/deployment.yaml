@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cpi-auth.fullname" . }}-core
+  labels:
+    {{- include "cpi-auth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: core
+spec:
+  {{- if not .Values.core.autoscaling.enabled }}
+  replicas: {{ .Values.core.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "cpi-auth.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: core
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/core/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/core/secret.yaml") . | sha256sum }}
+      labels:
+        {{- include "cpi-auth.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: core
+    spec:
+      serviceAccountName: {{ include "cpi-auth.serviceAccountName" . }}
+      containers:
+        - name: core
+          image: "{{ .Values.core.image.repository }}:{{ .Values.core.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.core.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 5050
+              protocol: TCP
+          env:
+            - name: AF_DB_HOST
+              value: {{ include "cpi-auth.databaseHost" . | quote }}
+            - name: AF_DB_PORT
+              value: {{ include "cpi-auth.databasePort" . | quote }}
+            - name: AF_DB_USER
+              value: {{ include "cpi-auth.databaseUser" . | quote }}
+            - name: AF_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cpi-auth.fullname" . }}-core
+                  key: database-password
+            - name: AF_DB_NAME
+              value: {{ include "cpi-auth.databaseName" . | quote }}
+            - name: AF_REDIS_HOST
+              value: {{ include "cpi-auth.redisHost" . | quote }}
+            - name: AF_NATS_URL
+              value: {{ include "cpi-auth.natsURL" . | quote }}
+            - name: AF_SECURITY_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cpi-auth.fullname" . }}-core
+                  key: encryption-key
+            {{- if .Values.core.config.smtp.host }}
+            - name: AF_SMTP_HOST
+              value: {{ .Values.core.config.smtp.host | quote }}
+            - name: AF_SMTP_PORT
+              value: {{ .Values.core.config.smtp.port | quote }}
+            - name: AF_SMTP_USERNAME
+              value: {{ .Values.core.config.smtp.username | quote }}
+            - name: AF_SMTP_FROM
+              value: {{ .Values.core.config.smtp.from | quote }}
+            {{- if .Values.core.config.smtp.password }}
+            - name: AF_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cpi-auth.fullname" . }}-core
+                  key: smtp-password
+            {{- end }}
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cpi-auth/config.yaml
+              subPath: config.yaml
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- with .Values.core.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "cpi-auth.fullname" . }}-core-config
