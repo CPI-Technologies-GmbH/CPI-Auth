@@ -56,10 +56,11 @@ async function loginWithDeviceAuth(server: string) {
     deviceResponse = await res.json()
   } catch (e: any) {
     // Fallback to password login if device auth not available
-    info('Device authorization not available on this server. Falling back to email/password.')
+    info(`Device authorization not available on ${server}. Falling back to email/password.`)
+    console.log()
     const rl = createInterface({ input: process.stdin, output: process.stdout })
-    const email = await rl.question('Email: ')
-    const password = await rl.question('Password: ')
+    const email = await rl.question('  Email: ')
+    const password = await rl.question('  Password: ')
     rl.close()
     await loginWithPassword(server, email, password)
     return
