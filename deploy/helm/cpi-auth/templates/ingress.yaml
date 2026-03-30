@@ -5,10 +5,11 @@ metadata:
   name: {{ include "cpi-auth.fullname" . }}
   labels:
     {{- include "cpi-auth.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
@@ -25,45 +26,220 @@ spec:
   {{- end }}
   rules:
     {{- $fullName := include "cpi-auth.fullname" . }}
-    {{- $domain := .Values.global.domain }}
-    {{- range .Values.ingress.hosts }}
-    - host: {{ default $domain .host | quote }}
+    - host: {{ .Values.global.domain | quote }}
       http:
         paths:
-          {{- range .paths }}
-          {{- if eq .service "core" }}
-          - path: {{ .path }}
-            pathType: {{ .pathType }}
+          # API routes → Core backend (highest priority, matched first)
+          - path: /admin/auth
+            pathType: Prefix
             backend:
               service:
                 name: {{ $fullName }}-core
                 port:
                   number: 5050
-          {{- else if eq .service "login-ui" }}
-          - path: {{ .path }}
-            pathType: {{ .pathType }}
+          - path: /admin/users
+            pathType: Prefix
             backend:
               service:
-                name: {{ $fullName }}-login-ui
+                name: {{ $fullName }}-core
                 port:
-                  number: 5053
-          {{- else if eq .service "admin-ui" }}
-          - path: {{ .path }}
-            pathType: {{ .pathType }}
+                  number: 5050
+          - path: /admin/tenants
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/applications
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/organizations
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/roles
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/permissions
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/webhooks
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/actions
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/email-templates
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/page-templates
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/language-strings
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/api-keys
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/custom-fields
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/domains
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/logs
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/audit-logs
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/settings
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/branding
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/stats
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /admin/dashboard
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          # OAuth/OIDC/Auth → Core backend
+          - path: /oauth
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /.well-known
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /passwordless
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /mfa
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /webauthn
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          - path: /saml
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-core
+                port:
+                  number: 5050
+          # Catch-all → Admin UI (serves the SPA)
+          - path: /
+            pathType: Prefix
             backend:
               service:
                 name: {{ $fullName }}-admin-ui
                 port:
                   number: 5054
-          {{- else if eq .service "account-ui" }}
-          - path: {{ .path }}
-            pathType: {{ .pathType }}
-            backend:
-              service:
-                name: {{ $fullName }}-account-ui
-                port:
-                  number: 5055
-          {{- end }}
-          {{- end }}
-    {{- end }}
 {{- end }}

@@ -17,7 +17,8 @@ data:
       user: {{ include "cpi-auth.databaseUser" . | quote }}
       sslmode: disable
     redis:
-      address: {{ include "cpi-auth.redisHost" . | quote }}
+      host: {{ printf "%s-redis" (include "cpi-auth.fullname" .) | quote }}
+      port: 6379
     nats:
       url: {{ include "cpi-auth.natsURL" . | quote }}
     smtp:

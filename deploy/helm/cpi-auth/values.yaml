@@ -174,8 +174,8 @@ postgresql:
   storageClassName: ""
   # -- PostgreSQL authentication
   auth:
-    database: cpi_auth
-    username: cpi_auth
+    database: authforge
+    username: authforge
     # -- Password (auto-generated if empty)
     password: ""
     postgresPassword: ""
@@ -193,8 +193,8 @@ postgresql:
     enabled: false
     host: ""
     port: 5432
-    database: cpi_auth
-    username: cpi_auth
+    database: authforge
+    username: authforge
     password: ""
 
 # =============================================================================
