@@ -29,9 +29,13 @@ spec:
               protocol: TCP
           env:
             - name: PUBLIC_API_URL
+              value: ""
+            - name: INTERNAL_API_URL
               value: "http://{{ include "cpi-auth.fullname" . }}-core:5050"
             - name: PORT
               value: "5053"
+            - name: ORIGIN
+              value: {{ printf "%s://%s" (ternary "https" "http" .Values.global.tls) .Values.global.domain | quote }}
           livenessProbe:
             httpGet:
               path: /

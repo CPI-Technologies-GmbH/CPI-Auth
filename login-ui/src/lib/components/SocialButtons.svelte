@@ -48,7 +48,7 @@
 
 	function handleSocialLogin(provider: SocialProvider) {
 		loadingProvider = provider.id;
-		const baseUrl = env.PUBLIC_API_URL || 'http://localhost:5050';
+		const baseUrl = env.PUBLIC_API_URL || '';
 		const params = new URLSearchParams({
 			provider: provider.id,
 			...(oauthParams?.client_id && { client_id: oauthParams.client_id }),

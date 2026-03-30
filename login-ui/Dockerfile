@@ -7,7 +7,8 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 COPY . .
-ENV PUBLIC_API_URL=http://localhost:5050
+# Build with empty PUBLIC_API_URL so client-side JS uses relative URLs
+ENV PUBLIC_API_URL=
 RUN npm run build
 RUN npm prune --production
 

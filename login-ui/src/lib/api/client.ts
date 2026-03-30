@@ -30,7 +30,7 @@ class CPIAuthApiClient {
 	private baseUrl: string;
 
 	constructor() {
-		this.baseUrl = env.PUBLIC_API_URL || 'http://localhost:5050';
+		this.baseUrl = env.PUBLIC_API_URL || '';
 	}
 
 	private async request<T>(

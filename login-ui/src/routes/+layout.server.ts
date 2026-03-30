@@ -1,9 +1,11 @@
 import type { LayoutServerLoad } from './$types';
 import type { BrandingConfig } from '$lib/api/types';
-import { env } from '$env/dynamic/public';
+import { env as publicEnv } from '$env/dynamic/public';
+import { env as privateEnv } from '$env/dynamic/private';
 
 export const load: LayoutServerLoad = async ({ url, fetch }) => {
-	const apiUrl = env.PUBLIC_API_URL || 'http://localhost:5050';
+	// Server-side: use internal URL (INTERNAL_API_URL) or fallback to public
+	const apiUrl = privateEnv.INTERNAL_API_URL || publicEnv.PUBLIC_API_URL || 'http://localhost:5050';
 	const clientId = url.searchParams.get('client_id') || '';
 
 	let branding: BrandingConfig | null = null;
