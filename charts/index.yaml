@@ -3,9 +3,9 @@ entries:
   cpi-auth:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-03-30T00:28:27.795693387Z"
+    created: "2026-03-30T00:33:40.112374522Z"
     description: CPI Auth - Identity and Access Management platform
-    digest: 4f11f83a4c27342b36319a602993e63a851fa25e0eb5041e14023faebdffa93e
+    digest: c61600f7dc48d861829b7d9ebd2bf963647cd7fd50c6e4fc9dac6caceac94826
     home: https://github.com/cpi-technologies-gmbh/cpi-auth
     keywords:
     - iam
@@ -22,4 +22,4 @@ entries:
     urls:
     - https://cpi-technologies-gmbh.github.io/CPI-Auth/charts/cpi-auth-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-30T00:28:27.793862249Z"
+generated: "2026-03-30T00:33:40.111304255Z"
