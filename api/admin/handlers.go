@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -246,6 +247,7 @@ func (h *Handler) registerRoutesWithPrefix(r chi.Router, p string) {
 	r.Get(p+"/stats", h.GetStats)
 	r.Get(p+"/branding", h.GetBranding)
 	r.Patch(p+"/branding", h.UpdateBranding)
+	r.Put(p+"/branding", h.UpdateBranding)
 }
 
 // --- Helpers ---
@@ -1349,17 +1351,45 @@ func (h *Handler) UpdateBranding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var update struct {
-		Branding json.RawMessage `json:"branding"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
-		middleware.WriteError(w, models.ErrBadRequest.Wrap(err))
+	// Accept both {"branding": {...}} wrapper and direct fields {"company_name": "..."}
+	body, readErr := io.ReadAll(r.Body)
+	if readErr != nil {
+		middleware.WriteError(w, models.ErrBadRequest.WithMessage("Failed to read request body."))
 		return
 	}
-	tenant.Branding = update.Branding
+
+	var wrapper struct {
+		Branding json.RawMessage `json:"branding"`
+	}
+	if json.Unmarshal(body, &wrapper) == nil && len(wrapper.Branding) > 0 {
+		// Wrapped format: {"branding": {...}}
+		tenant.Branding = wrapper.Branding
+	} else {
+		// Direct format: {"company_name": "...", "primary_color": "..."}
+		// Merge with existing branding
+		existing := make(map[string]interface{})
+		if len(tenant.Branding) > 0 {
+			json.Unmarshal(tenant.Branding, &existing)
+		}
+		var incoming map[string]interface{}
+		if json.Unmarshal(body, &incoming) != nil {
+			middleware.WriteError(w, models.ErrBadRequest.WithMessage("Invalid JSON body."))
+			return
+		}
+		for k, v := range incoming {
+			existing[k] = v
+		}
+		merged, _ := json.Marshal(existing)
+		tenant.Branding = merged
+	}
+
 	if err := h.tenantRepo.Update(r.Context(), tenant); err != nil {
 		middleware.WriteError(w, err)
 		return
 	}
-	middleware.WriteJSON(w, http.StatusOK, map[string]interface{}{"branding": tenant.Branding})
+
+	// Return the branding in both formats for compatibility
+	var brandingObj interface{}
+	json.Unmarshal(tenant.Branding, &brandingObj)
+	middleware.WriteJSON(w, http.StatusOK, brandingObj)
 }
