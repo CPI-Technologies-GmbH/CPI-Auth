@@ -265,6 +265,44 @@ func main() {
 		r.Post("/oauth/device/authorize", authHandler.DeviceAuthorize)
 	})
 
+	// Public branding endpoint (no auth, used by login-ui)
+	r.Get("/api/v1/branding", func(w http.ResponseWriter, r *http.Request) {
+		tenantID := mw.GetTenantID(r.Context())
+		tenant, err := tenantRepo.GetByID(r.Context(), tenantID)
+		if err != nil {
+			mw.WriteJSON(w, http.StatusOK, map[string]interface{}{})
+			return
+		}
+
+		branding := make(map[string]interface{})
+		if len(tenant.Branding) > 0 {
+			json.Unmarshal(tenant.Branding, &branding)
+		}
+
+		// If client_id provided, merge app-specific branding (overrides tenant)
+		clientID := r.URL.Query().Get("client_id")
+		if clientID != "" {
+			app, appErr := appRepo.GetByClientID(r.Context(), clientID)
+			if appErr == nil && app != nil && len(app.Settings) > 0 {
+				var appSettings map[string]interface{}
+				if json.Unmarshal(app.Settings, &appSettings) == nil {
+					if appBranding, ok := appSettings["branding"].(map[string]interface{}); ok {
+						for k, v := range appBranding {
+							branding[k] = v
+						}
+					}
+				}
+			}
+		}
+
+		// Add tenant name as fallback app_name
+		if _, ok := branding["app_name"]; !ok {
+			branding["app_name"] = tenant.Name
+		}
+
+		mw.WriteJSON(w, http.StatusOK, branding)
+	})
+
 	// --- Admin Routes (all under /admin) ---
 	r.Route("/admin", func(r chi.Router) {
 		// Public auth endpoints (no auth middleware)
