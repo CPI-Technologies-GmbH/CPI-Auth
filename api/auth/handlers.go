@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -268,7 +269,12 @@ func (h *Handler) Userinfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Discovery(w http.ResponseWriter, r *http.Request) {
-	middleware.WriteJSON(w, http.StatusOK, h.oauthSvc.DiscoveryDocument())
+	// Use request Host for per-tenant issuer URLs
+	host := r.Host
+	if idx := strings.LastIndex(host, ":"); idx != -1 {
+		host = host[:idx]
+	}
+	middleware.WriteJSON(w, http.StatusOK, h.oauthSvc.DiscoveryDocumentForDomain(host))
 }
 
 func (h *Handler) JWKS(w http.ResponseWriter, r *http.Request) {
@@ -468,6 +474,22 @@ func setSessionCookie(w http.ResponseWriter, r *http.Request, sessionID string, 
 	})
 }
 
+func issuerFromRequest(r *http.Request) string {
+	scheme := "https"
+	if r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https" {
+		scheme = "http"
+	}
+	host := r.Host
+	if idx := strings.LastIndex(host, ":"); idx != -1 {
+		// Keep port only if it's non-standard
+		port := host[idx+1:]
+		if (scheme == "https" && port == "443") || (scheme == "http" && port == "80") {
+			host = host[:idx]
+		}
+	}
+	return scheme + "://" + host
+}
+
 func extractIP(remoteAddr string) string {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
@@ -629,6 +651,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		Name:        user.Name,
 		Scopes:      []string{"openid", "profile", "email"},
 		Permissions: userPerms,
+		Issuer:      issuerFromRequest(r),
 	})
 	if err != nil {
 		middleware.WriteError(w, err)

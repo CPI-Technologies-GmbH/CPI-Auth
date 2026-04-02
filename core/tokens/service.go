@@ -95,6 +95,8 @@ type IssueTokenPairInput struct {
 	IDTokenTTL      *int
 	// ActorID is set when the token is issued on behalf of another user (impersonation).
 	ActorID *uuid.UUID
+	// Issuer overrides the global issuer (for per-tenant domains).
+	Issuer string
 }
 
 // IssueTokenPair creates a new access token, refresh token, and optionally an ID token.
@@ -116,10 +118,16 @@ func (s *Service) IssueTokenPair(ctx context.Context, input IssueTokenPairInput)
 		idTTL = time.Duration(*input.IDTokenTTL) * time.Second
 	}
 
+	// Determine issuer (per-tenant domain or global default)
+	issuer := s.cfg.Security.Issuer
+	if input.Issuer != "" {
+		issuer = input.Issuer
+	}
+
 	// Build access token
 	accessClaims := AccessTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    s.cfg.Security.Issuer,
+			Issuer:    issuer,
 			Subject:   input.UserID.String(),
 			Audience:  jwt.ClaimStrings{input.ApplicationID.String()},
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -180,7 +188,7 @@ func (s *Service) IssueTokenPair(ctx context.Context, input IssueTokenPairInput)
 	if containsScope(input.Scopes, "openid") {
 		idClaims := IDTokenClaims{
 			RegisteredClaims: jwt.RegisteredClaims{
-				Issuer:    s.cfg.Security.Issuer,
+				Issuer:    issuer,
 				Subject:   input.UserID.String(),
 				Audience:  jwt.ClaimStrings{input.ApplicationID.String()},
 				IssuedAt:  jwt.NewNumericDate(now),

@@ -435,9 +435,27 @@ func (s *Service) GetUserinfo(ctx context.Context, claims *tokens.AccessTokenCla
 	return info, nil
 }
 
+// IssuerForDomain returns the issuer URL for a specific tenant domain.
+// Falls back to the global issuer if domain is empty.
+func (s *Service) IssuerForDomain(domain string) string {
+	if domain != "" {
+		scheme := "https"
+		if strings.HasPrefix(s.cfg.Security.Issuer, "http://") {
+			scheme = "http"
+		}
+		return scheme + "://" + domain
+	}
+	return s.cfg.Security.Issuer
+}
+
 // DiscoveryDocument returns the OIDC discovery metadata.
 func (s *Service) DiscoveryDocument() map[string]interface{} {
-	issuer := s.cfg.Security.Issuer
+	return s.DiscoveryDocumentForDomain("")
+}
+
+// DiscoveryDocumentForDomain returns OIDC discovery for a specific tenant domain.
+func (s *Service) DiscoveryDocumentForDomain(domain string) map[string]interface{} {
+	issuer := s.IssuerForDomain(domain)
 	return map[string]interface{}{
 		"issuer":                                issuer,
 		"authorization_endpoint":                issuer + "/oauth/authorize",
