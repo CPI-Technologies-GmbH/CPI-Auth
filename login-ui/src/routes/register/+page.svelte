@@ -102,8 +102,18 @@
 			if (result.redirect_url) {
 				redirectTo(result.redirect_url);
 			} else {
-				// Show email verification message or redirect to login
-				await goto('/login?registered=true');
+				// Redirect to login, preserving OAuth params so the flow continues
+				const params = new URLSearchParams({ registered: 'true' });
+				if (oauth) {
+					params.set('client_id', oauth.client_id);
+					params.set('redirect_uri', oauth.redirect_uri);
+					params.set('scope', oauth.scope || '');
+					params.set('state', oauth.state || '');
+					if (oauth.code_challenge) params.set('code_challenge', oauth.code_challenge);
+					if (oauth.code_challenge_method) params.set('code_challenge_method', oauth.code_challenge_method);
+					if (oauth.response_type) params.set('response_type', oauth.response_type);
+				}
+				await goto(`/login?${params.toString()}`);
 			}
 		} catch (err) {
 			if (err instanceof ApiClientError) {
