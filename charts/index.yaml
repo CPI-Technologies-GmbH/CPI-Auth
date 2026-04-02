@@ -2,8 +2,29 @@ apiVersion: v1
 entries:
   cpi-auth:
   - apiVersion: v2
+    appVersion: 0.1.8
+    created: "2026-04-02T22:23:18.86692158Z"
+    description: CPI Auth - Identity and Access Management platform
+    digest: 7b38cd4bc0a24d8bcf6601ac0f0519875bf3bbe2a60dec5161899a0cdb468a1c
+    home: https://github.com/cpi-technologies-gmbh/cpi-auth
+    keywords:
+    - iam
+    - authentication
+    - authorization
+    - identity
+    maintainers:
+    - name: CPI Technologies GmbH
+      url: https://github.com/cpi-technologies-gmbh
+    name: cpi-auth
+    sources:
+    - https://github.com/cpi-technologies-gmbh/cpi-auth
+    type: application
+    urls:
+    - https://cpi-technologies-gmbh.github.io/CPI-Auth/charts/cpi-auth-0.1.8.tgz
+    version: 0.1.8
+  - apiVersion: v2
     appVersion: 0.1.7
-    created: "2026-04-02T21:59:27.000611129Z"
+    created: "2026-04-02T22:23:18.866111553Z"
     description: CPI Auth - Identity and Access Management platform
     digest: 0eceba096fc0ddcd8622967f93cfd18a77f067d702579acb9b0079b167336c74
     home: https://github.com/cpi-technologies-gmbh/cpi-auth
@@ -24,7 +45,7 @@ entries:
     version: 0.1.7
   - apiVersion: v2
     appVersion: 0.1.6
-    created: "2026-04-02T21:59:26.999771289Z"
+    created: "2026-04-02T22:23:18.865265158Z"
     description: CPI Auth - Identity and Access Management platform
     digest: 000be59e7b91a346c8a7679f9b335d78e669214a595eef817bbc062928537bc2
     home: https://github.com/cpi-technologies-gmbh/cpi-auth
@@ -45,7 +66,7 @@ entries:
     version: 0.1.6
   - apiVersion: v2
     appVersion: 0.1.5
-    created: "2026-04-02T21:59:26.998747945Z"
+    created: "2026-04-02T22:23:18.864442477Z"
     description: CPI Auth - Identity and Access Management platform
     digest: 1fc0c075fcd91b10d9a7a35513e2cd4c48123a793053f13ae043ba6105dc4f09
     home: https://github.com/cpi-technologies-gmbh/cpi-auth
@@ -66,7 +87,7 @@ entries:
     version: 0.1.5
   - apiVersion: v2
     appVersion: 0.1.4
-    created: "2026-04-02T21:59:26.997000705Z"
+    created: "2026-04-02T22:23:18.863608796Z"
     description: CPI Auth - Identity and Access Management platform
     digest: 0413df024455ee532a13ffe2ee0961ede7ed2ae99aee356d767f78aba7e65255
     home: https://github.com/cpi-technologies-gmbh/cpi-auth
@@ -87,7 +108,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: 0.1.3
-    created: "2026-04-02T21:59:26.996121351Z"
+    created: "2026-04-02T22:23:18.862724962Z"
     description: CPI Auth - Identity and Access Management platform
     digest: 20532867a76567b8fb60bd03c45c158cc2984620da51cdaf963aa2f903792f8e
     home: https://github.com/cpi-technologies-gmbh/cpi-auth
@@ -108,7 +129,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: 0.1.2
-    created: "2026-04-02T21:59:26.995174019Z"
+    created: "2026-04-02T22:23:18.861906509Z"
     description: CPI Auth - Identity and Access Management platform
     digest: 26482a7bf44c97cb6961c23c431fde244d8d14a9e73ca1a366b96e156d3ccd78
     home: https://github.com/cpi-technologies-gmbh/cpi-auth
@@ -129,7 +150,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: 0.1.1
-    created: "2026-04-02T21:59:26.994243129Z"
+    created: "2026-04-02T22:23:18.860263121Z"
     description: CPI Auth - Identity and Access Management platform
     digest: 74eb46c53db682beae810fd78c209173d3ca93f340584fdfb5f8b285483554e1
     home: https://github.com/cpi-technologies-gmbh/cpi-auth
@@ -150,7 +171,7 @@ entries:
     version: 0.1.1
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-04-02T21:59:26.993315514Z"
+    created: "2026-04-02T22:23:18.859119824Z"
     description: CPI Auth - Identity and Access Management platform
     digest: ecd32d19b2aad771392951890e5475f8619f681c91eda4cc0ed96d81189ba2d2
     home: https://github.com/cpi-technologies-gmbh/cpi-auth
@@ -169,4 +190,4 @@ entries:
     urls:
     - https://cpi-technologies-gmbh.github.io/CPI-Auth/charts/cpi-auth-0.1.0.tgz
     version: 0.1.0
-generated: "2026-04-02T21:59:26.992211179Z"
+generated: "2026-04-02T22:23:18.858175978Z"
