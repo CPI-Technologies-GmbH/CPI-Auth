@@ -1,70 +1,94 @@
 # AI Agent Integration Guide
 
-This page provides a structured prompt and reference for AI coding agents (Claude, GPT, Copilot, Cursor, etc.) to integrate CPI Auth into any application using only the CLI — no UI required.
-
-## Agent Prompt
-
-Copy and paste the following into your AI agent's context when you want it to integrate CPI Auth into your project:
+This page provides a structured prompt for AI coding agents to integrate CPI Auth into any application. Copy the prompt below into your agent's context.
 
 ---
 
-### Context
+---
 
-You are integrating **CPI Auth** (an OAuth 2.0 / OpenID Connect identity platform) into an application. CPI Auth is deployed and accessible. You have CLI access on this computer.
+## Prompt
 
-**CPI Auth server:** `https://auth.cpi.dev` (replace with your instance URL)
+You are integrating **CPI Auth** into an application. CPI Auth is an OAuth 2.0 / OpenID Connect identity platform.
 
-### Step 1: Authenticate with the CLI
+**CPI Auth Server:** `<CPI_AUTH_SERVER_URL>`
+**Admin Credentials:** `<ADMIN_EMAIL>` / `<ADMIN_PASSWORD>`
+
+### Step 1: Install the CLI (if not already installed)
 
 ```bash
-cpi-auth login \
-  --server https://auth.cpi.dev \
-  --email admin@cpi-auth.local \
-  --password <ADMIN_PASSWORD>
+npm install -g @cpi-auth/cli
 ```
 
-The token is saved locally to `.cpi-auth-token` and used for all subsequent commands.
+Verify with `cpi-auth --version`. If the npm package is not published yet, you can skip the CLI and use the REST API directly (see Step 2b).
 
-### Step 2: Create the application in one command
+### Step 2a: Setup via CLI (preferred)
 
 ```bash
+# Login
+cpi-auth login --server <CPI_AUTH_SERVER_URL> --email <ADMIN_EMAIL> --password <ADMIN_PASSWORD>
+
+# Verify connection
+cpi-auth status
+
+# Create application + users in one command
 cpi-auth setup \
-  --server https://auth.cpi.dev \
-  --app-name "<YOUR_APP_NAME>" \
+  --app-name "<APP_NAME>" \
   --app-type <spa|web|native|m2m> \
-  --redirect-uri "<YOUR_CALLBACK_URL>" \
-  --allowed-origin "<YOUR_APP_ORIGIN>" \
+  --redirect-uri "<CALLBACK_URL>" \
+  --allowed-origin "<APP_ORIGIN>" \
   --grant-types "authorization_code,refresh_token" \
-  --create-user "<FIRST_USER_EMAIL>" \
-  --user-password "<SECURE_PASSWORD>" \
+  --create-user "<USER_EMAIL>" \
+  --user-password "<USER_PASSWORD>" \
   --output env
 ```
 
-**Application types:**
+The output gives you the `.env` variables to add to your application:
 
-| Type | Use case | Has client secret? |
-|------|----------|-------------------|
-| `spa` | React, Vue, Angular (browser) | No |
-| `web` | Node.js, Django, Rails (server) | Yes |
-| `native` | iOS, Android, Desktop | No |
-| `m2m` | Backend services, APIs | Yes |
+```
+CPI_AUTH_CLIENT_ID=<generated>
+CPI_AUTH_CLIENT_SECRET=<generated>        # only for web/m2m types
+CPI_AUTH_ISSUER=<CPI_AUTH_SERVER_URL>
+CPI_AUTH_REDIRECT_URI=<CALLBACK_URL>
+CPI_AUTH_AUTHORIZATION_ENDPOINT=<CPI_AUTH_SERVER_URL>/oauth/authorize
+CPI_AUTH_TOKEN_ENDPOINT=<CPI_AUTH_SERVER_URL>/oauth/token
+CPI_AUTH_USERINFO_ENDPOINT=<CPI_AUTH_SERVER_URL>/oauth/userinfo
+CPI_AUTH_JWKS_URI=<CPI_AUTH_SERVER_URL>/.well-known/jwks.json
+```
 
-**Output variables** (copy to your `.env`):
+### Step 2b: Setup via REST API (if CLI is not available)
 
 ```bash
-CPI_AUTH_CLIENT_ID=<generated>
-CPI_AUTH_CLIENT_SECRET=<generated>      # only for web/m2m
-CPI_AUTH_ISSUER=https://auth.cpi.dev
-CPI_AUTH_REDIRECT_URI=<your-callback>
-CPI_AUTH_AUTHORIZATION_ENDPOINT=https://auth.cpi.dev/oauth/authorize
-CPI_AUTH_TOKEN_ENDPOINT=https://auth.cpi.dev/oauth/token
-CPI_AUTH_USERINFO_ENDPOINT=https://auth.cpi.dev/oauth/userinfo
-CPI_AUTH_JWKS_URI=https://auth.cpi.dev/.well-known/jwks.json
+# 1. Login to get an admin token
+TOKEN=$(curl -s -X POST <CPI_AUTH_SERVER_URL>/admin/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"<ADMIN_EMAIL>","password":"<ADMIN_PASSWORD>"}' | jq -r '.access_token')
+
+# 2. Create an application
+curl -s -X POST <CPI_AUTH_SERVER_URL>/admin/applications \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "<APP_NAME>",
+    "type": "spa",
+    "redirect_uris": ["<CALLBACK_URL>"],
+    "allowed_origins": ["<APP_ORIGIN>"],
+    "grant_types": ["authorization_code", "refresh_token"],
+    "is_active": true
+  }'
+# Response contains client_id (and client_secret for web/m2m types)
+
+# 3. Create a user (optional)
+curl -s -X POST <CPI_AUTH_SERVER_URL>/admin/users \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"<USER_EMAIL>","password":"<USER_PASSWORD>","name":"<USER_NAME>"}'
 ```
 
 ### Step 3: Integrate into your application
 
-#### React / Next.js (SPA)
+CPI Auth is a **standard OAuth 2.0 / OIDC server**. Use any OAuth library for your framework.
+
+#### React / Next.js
 
 ```bash
 npm install oidc-client-ts react-oidc-context
@@ -74,7 +98,7 @@ npm install oidc-client-ts react-oidc-context
 import { AuthProvider, useAuth } from 'react-oidc-context';
 
 const oidcConfig = {
-  authority: process.env.CPI_AUTH_ISSUER,
+  authority: process.env.CPI_AUTH_ISSUER,       // e.g. https://auth.example.com
   client_id: process.env.CPI_AUTH_CLIENT_ID,
   redirect_uri: process.env.CPI_AUTH_REDIRECT_URI,
   scope: 'openid profile email',
@@ -82,34 +106,18 @@ const oidcConfig = {
 };
 
 function App() {
-  return (
-    <AuthProvider {...oidcConfig}>
-      <YourApp />
-    </AuthProvider>
-  );
+  return <AuthProvider {...oidcConfig}><YourApp /></AuthProvider>;
 }
 
 function YourApp() {
   const auth = useAuth();
-
   if (auth.isLoading) return <div>Loading...</div>;
-  if (auth.error) return <div>Error: {auth.error.message}</div>;
-
-  if (!auth.isAuthenticated) {
-    return <button onClick={() => auth.signinRedirect()}>Sign in</button>;
-  }
-
-  return (
-    <div>
-      <p>Welcome, {auth.user?.profile.name}</p>
-      <p>Email: {auth.user?.profile.email}</p>
-      <button onClick={() => auth.signoutRedirect()}>Sign out</button>
-    </div>
-  );
+  if (!auth.isAuthenticated) return <button onClick={() => auth.signinRedirect()}>Sign in</button>;
+  return <div>Welcome, {auth.user?.profile.name}</div>;
 }
 ```
 
-#### Node.js / Express (Server)
+#### Node.js / Express
 
 ```bash
 npm install openid-client express-session
@@ -126,22 +134,20 @@ const client = new issuer.Client({
   response_types: ['code'],
 });
 
-// Login route
+// Redirect to login
 app.get('/login', (req, res) => {
-  const url = client.authorizationUrl({ scope: 'openid profile email' });
-  res.redirect(url);
+  res.redirect(client.authorizationUrl({ scope: 'openid profile email' }));
 });
 
-// Callback route
+// Handle callback
 app.get('/callback', async (req, res) => {
-  const params = client.callbackParams(req);
-  const tokenSet = await client.callback(process.env.CPI_AUTH_REDIRECT_URI, params);
+  const tokenSet = await client.callback(process.env.CPI_AUTH_REDIRECT_URI, client.callbackParams(req));
   req.session.tokens = tokenSet;
   res.redirect('/');
 });
 ```
 
-#### Python / Django / FastAPI
+#### Python (FastAPI / Django)
 
 ```bash
 pip install authlib httpx
@@ -160,17 +166,15 @@ oauth.register(
 )
 ```
 
-#### Any language (raw OAuth2 PKCE flow)
+#### Any language (raw PKCE flow)
 
-1. **Discover endpoints:**
-   `GET https://auth.cpi.dev/.well-known/openid-configuration`
+1. **Discover:** `GET <CPI_AUTH_SERVER_URL>/.well-known/openid-configuration`
 
-2. **Generate PKCE challenge:**
-   Create random `code_verifier` (43-128 chars), hash with SHA256 to get `code_challenge`
+2. **Generate PKCE:** Create `code_verifier` (43-128 random chars), SHA256 hash it to `code_challenge`
 
-3. **Redirect to authorize:**
+3. **Authorize:** Redirect user to:
    ```
-   https://auth.cpi.dev/oauth/authorize?
+   <CPI_AUTH_SERVER_URL>/oauth/authorize?
      client_id=<CLIENT_ID>&
      redirect_uri=<CALLBACK_URL>&
      response_type=code&
@@ -180,11 +184,8 @@ oauth.register(
      state=<RANDOM_STATE>
    ```
 
-4. **Exchange code for tokens:**
+4. **Exchange code:** `POST <CPI_AUTH_SERVER_URL>/oauth/token`
    ```
-   POST https://auth.cpi.dev/oauth/token
-   Content-Type: application/x-www-form-urlencoded
-
    grant_type=authorization_code&
    code=<AUTH_CODE>&
    redirect_uri=<CALLBACK_URL>&
@@ -192,51 +193,47 @@ oauth.register(
    code_verifier=<CODE_VERIFIER>
    ```
 
-5. **Get user info:**
-   ```
-   GET https://auth.cpi.dev/oauth/userinfo
-   Authorization: Bearer <ACCESS_TOKEN>
-   ```
+5. **Get user info:** `GET <CPI_AUTH_SERVER_URL>/oauth/userinfo` with `Authorization: Bearer <access_token>`
 
-6. **Validate JWT tokens:**
-   Fetch public keys from `https://auth.cpi.dev/.well-known/jwks.json` and verify RS256 signature.
+6. **Validate JWTs:** Fetch keys from `<CPI_AUTH_SERVER_URL>/.well-known/jwks.json`, verify RS256 signature
 
-### Step 4: Additional CLI commands
+### Step 4: Additional management (optional)
+
+If the CLI is installed:
 
 ```bash
-# User management
-cpi-auth users create --email user@example.com --password Pass123 --name "John"
+# Users
+cpi-auth users create --email user@example.com --password SecurePass123 --name "John Doe"
 cpi-auth users list --search "john"
 cpi-auth users block <USER_ID>
 
-# Role management
+# Roles & Permissions
 cpi-auth roles create --name editor --permissions "posts:read,posts:write"
+cpi-auth roles create-permission --name "billing:manage"
 cpi-auth roles list
 
-# Application management
+# Applications
 cpi-auth apps list
 cpi-auth apps rotate-secret <APP_ID>
 
-# Permissions
-cpi-auth roles create-permission --name "billing:manage"
-cpi-auth roles permissions
-
-# Language strings (for login page customization)
-cpi-auth strings add "login.welcome" "Welcome to Our App" --locale en
-cpi-auth strings add "login.welcome" "Willkommen" --locale de
+# Context management (multiple servers)
+cpi-auth config add-context staging --server https://staging-auth.example.com
+cpi-auth config use-context staging
+cpi-auth config list-contexts
 ```
 
-## JWT Token Structure
+If the CLI is not available, all operations are available via REST API with Bearer token authentication at `/admin/*` endpoints.
+
+### JWT Token Structure
 
 Access tokens are RS256-signed JWTs:
 
 ```json
 {
-  "iss": "https://auth.cpi.dev",
+  "iss": "<CPI_AUTH_SERVER_URL>",
   "sub": "user-uuid",
   "aud": ["client-id"],
   "exp": 1234567890,
-  "iat": 1234567800,
   "tenant_id": "tenant-uuid",
   "email": "user@example.com",
   "name": "User Name",
@@ -249,33 +246,37 @@ Access tokens are RS256-signed JWTs:
 | Claim | Description |
 |-------|-------------|
 | `sub` | User ID (UUID) |
-| `iss` | Issuer URL |
+| `iss` | Issuer URL (your CPI Auth server) |
 | `aud` | Client ID of the application |
 | `tenant_id` | Tenant this user belongs to |
-| `permissions` | RBAC permissions (intersection of user and app permissions) |
-| `act` | Present only during admin impersonation; contains the admin's user ID |
+| `permissions` | RBAC permissions array |
+| `act` | Only present during impersonation; contains admin's user ID |
 
-## API Endpoints Reference
+Validate tokens by fetching public keys from `<CPI_AUTH_SERVER_URL>/.well-known/jwks.json` and verifying the RS256 signature.
 
-| Category | Method | Path | Description |
-|----------|--------|------|-------------|
-| **Discovery** | GET | `/.well-known/openid-configuration` | OIDC discovery document |
-| | GET | `/.well-known/jwks.json` | JWT signing public keys |
-| **OAuth** | POST | `/oauth/authorize` | Authorization endpoint |
-| | POST | `/oauth/token` | Token exchange |
-| | POST | `/oauth/revoke` | Token revocation |
-| | GET | `/oauth/userinfo` | User profile endpoint |
-| **Auth** | POST | `/api/v1/auth/login` | Login (email + password) |
-| | POST | `/api/v1/auth/register` | Register new user |
-| **Admin** | POST | `/admin/auth/login` | Admin login |
-| | GET | `/admin/auth/me` | Current admin user |
-| | GET | `/admin/users` | List users |
-| | POST | `/admin/users` | Create user |
-| | GET | `/admin/applications` | List applications |
-| | POST | `/admin/applications` | Create application |
-| | GET | `/admin/roles` | List roles |
-| | POST | `/admin/roles` | Create role |
-| | GET | `/admin/permissions` | List permissions |
-| | POST | `/admin/permissions` | Create permission |
+### API Endpoints Reference
 
-Full API reference: [API Documentation](/api/authentication)
+| Category | Method | Endpoint | Auth |
+|----------|--------|----------|------|
+| Discovery | GET | `/.well-known/openid-configuration` | Public |
+| JWKS | GET | `/.well-known/jwks.json` | Public |
+| Authorize | GET | `/oauth/authorize` | Public (browser redirect) |
+| Token | POST | `/oauth/token` | Public |
+| Revoke | POST | `/oauth/revoke` | Public |
+| Userinfo | GET | `/oauth/userinfo` | Bearer token |
+| Login | POST | `/api/v1/auth/login` | Public |
+| Register | POST | `/api/v1/auth/register` | Public |
+| Logout | GET/POST | `/api/v1/auth/logout` | Session cookie |
+| Admin Login | POST | `/admin/auth/login` | Public |
+| Admin Me | GET | `/admin/auth/me` | Bearer token |
+| Users | GET/POST | `/admin/users` | Bearer token |
+| Applications | GET/POST | `/admin/applications` | Bearer token |
+| Roles | GET/POST | `/admin/roles` | Bearer token |
+| Permissions | GET/POST | `/admin/permissions` | Bearer token |
+
+### Session Behavior
+
+- After login, CPI Auth sets an `HttpOnly` session cookie (`__cpi_auth_session`)
+- Default session: 24 hours. With "Remember me": 30 days
+- Subsequent OAuth authorizations are auto-approved if the session is valid (SSO)
+- Logout via `GET/POST /api/v1/auth/logout` clears the session cookie
