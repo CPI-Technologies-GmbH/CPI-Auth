@@ -53,6 +53,10 @@ spec:
               value: {{ include "cpi-auth.natsURL" . | quote }}
             - name: AF_PUBLIC_DOMAIN
               value: {{ .Values.global.domain | quote }}
+            - name: AF_ISSUER
+              value: {{ printf "%s://%s" (ternary "https" "http" .Values.global.tls) .Values.global.domain | quote }}
+            - name: AF_SERVER_BASE_URL
+              value: {{ printf "%s://%s" (ternary "https" "http" .Values.global.tls) .Values.global.domain | quote }}
             {{- if .Values.global.adminPassword }}
             - name: AF_ADMIN_PASSWORD
               value: {{ .Values.global.adminPassword | quote }}
