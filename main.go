@@ -267,9 +267,33 @@ func main() {
 
 	// Public branding endpoint (no auth, used by login-ui)
 	r.Get("/api/v1/branding", func(w http.ResponseWriter, r *http.Request) {
-		tenantID := mw.GetTenantID(r.Context())
-		tenant, err := tenantRepo.GetByID(r.Context(), tenantID)
-		if err != nil {
+		ctx := r.Context()
+		clientID := r.URL.Query().Get("client_id")
+
+		// Resolve tenant: from context (domain), or from client_id's app
+		tenantID := mw.GetTenantID(ctx)
+		var tenant *models.Tenant
+
+		// If client_id provided, find the app and use its tenant
+		var app *models.Application
+		if clientID != "" {
+			if a, err := appRepo.GetByClientID(ctx, clientID); err == nil && a != nil {
+				app = a
+				if tenantID == uuid.Nil {
+					tenantID = a.TenantID
+				}
+			}
+		}
+
+		// Load tenant
+		if tenantID != uuid.Nil {
+			t, err := tenantRepo.GetByID(ctx, tenantID)
+			if err == nil {
+				tenant = t
+			}
+		}
+
+		if tenant == nil {
 			mw.WriteJSON(w, http.StatusOK, map[string]interface{}{})
 			return
 		}
@@ -279,17 +303,13 @@ func main() {
 			json.Unmarshal(tenant.Branding, &branding)
 		}
 
-		// If client_id provided, merge app-specific branding (overrides tenant)
-		clientID := r.URL.Query().Get("client_id")
-		if clientID != "" {
-			app, appErr := appRepo.GetByClientID(r.Context(), clientID)
-			if appErr == nil && app != nil && len(app.Settings) > 0 {
-				var appSettings map[string]interface{}
-				if json.Unmarshal(app.Settings, &appSettings) == nil {
-					if appBranding, ok := appSettings["branding"].(map[string]interface{}); ok {
-						for k, v := range appBranding {
-							branding[k] = v
-						}
+		// Merge app-specific branding (overrides tenant)
+		if app != nil && len(app.Settings) > 0 {
+			var appSettings map[string]interface{}
+			if json.Unmarshal(app.Settings, &appSettings) == nil {
+				if appBranding, ok := appSettings["branding"].(map[string]interface{}); ok {
+					for k, v := range appBranding {
+						branding[k] = v
 					}
 				}
 			}
