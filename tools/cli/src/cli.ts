@@ -15,6 +15,7 @@ import { setupCommand } from './commands/setup.js'
 import { appsCommand } from './commands/apps.js'
 import { usersCommand } from './commands/users.js'
 import { rolesCommand } from './commands/roles.js'
+import { tenantsCommand } from './commands/tenants.js'
 
 // Template development
 import { templatesCommand } from './commands/templates.js'
@@ -40,6 +41,7 @@ program.addCommand(setupCommand())
 program.addCommand(appsCommand())
 program.addCommand(usersCommand())
 program.addCommand(rolesCommand())
+program.addCommand(tenantsCommand())
 
 // ─── Template Development ──────────────────────────────────
 program.addCommand(templatesCommand())
