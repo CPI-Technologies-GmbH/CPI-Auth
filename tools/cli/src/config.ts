@@ -143,11 +143,13 @@ export function getAuthenticatedClient(opts?: { server?: string; token?: string 
   // Priority: flags > env vars > current context
   let server = opts?.server || process.env.CPI_AUTH_SERVER || ''
   let token = opts?.token || process.env.CPI_AUTH_TOKEN || ''
+  let tenantId = process.env.CPI_AUTH_TENANT_ID || ''
 
   if (!server) {
     const ctx = getCurrentContext()
     if (ctx) {
       server = ctx.server
+      if (ctx.tenantId) tenantId = ctx.tenantId
     }
   }
 
@@ -155,7 +157,7 @@ export function getAuthenticatedClient(opts?: { server?: string; token?: string 
     throw new Error('No server configured. Run `cpi-auth login --server <url>` or `cpi-auth config add-context <name> --server <url>`.')
   }
 
-  const client = new APIClient({ server })
+  const client = new APIClient({ server, tenantId: tenantId || undefined })
 
   if (token) {
     client.setToken(token)

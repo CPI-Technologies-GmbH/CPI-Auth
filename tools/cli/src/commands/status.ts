@@ -61,9 +61,16 @@ export function statusCommand() {
       try {
         const client = getAuthenticatedClient()
         const me = await client.request<any>('GET', '/admin/auth/me')
-        console.log(`  ${chalk.dim('Connection:')}  ${chalk.green('reachable')}`)
-      } catch {
-        console.log(`  ${chalk.dim('Connection:')}  ${chalk.yellow('unreachable or token expired')}`)
+        console.log(`  ${chalk.dim('Connection:')}  ${chalk.green('reachable')} (authenticated as ${me.email || 'admin'})`)
+      } catch (e: any) {
+        const msg = e?.message || ''
+        if (msg.includes('401') || msg.includes('unauthorized')) {
+          console.log(`  ${chalk.dim('Connection:')}  ${chalk.red('401 Unauthorized')} — token may be revoked or tenant mismatch`)
+        } else if (msg.includes('fetch') || msg.includes('ECONNREFUSED')) {
+          console.log(`  ${chalk.dim('Connection:')}  ${chalk.yellow('server unreachable')}`)
+        } else {
+          console.log(`  ${chalk.dim('Connection:')}  ${chalk.yellow(msg.substring(0, 60))}`)
+        }
       }
 
       console.log()
