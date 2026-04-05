@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { env } from '$env/dynamic/public';
-	import { env as privateEnv } from '$env/dynamic/private';
 	import { branding } from '$lib/stores';
 	import AuthLayout from '$lib/components/AuthLayout.svelte';
 	import Alert from '$lib/components/Alert.svelte';
@@ -113,7 +112,6 @@
 						class="af-input text-center text-2xl font-mono tracking-[0.3em] uppercase"
 						maxlength="9"
 						autocomplete="off"
-						autofocus
 					/>
 				</div>
 
