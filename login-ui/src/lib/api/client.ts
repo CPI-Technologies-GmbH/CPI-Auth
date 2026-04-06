@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/public';
+import { parseTenantFromPath } from '$lib/tenant';
 import type {
 	AuthResponse,
 	BrandingConfig,
@@ -33,13 +34,30 @@ class CPIAuthApiClient {
 		this.baseUrl = env.PUBLIC_API_URL || '';
 	}
 
+	/**
+	 * Build a tenant-aware request URL. When the user is on /t/{slug}/...
+	 * (browser-side), prepend the same prefix to backend API paths so the
+	 * core PathBasedTenantResolver puts the tenant into context for the
+	 * request — otherwise the host-derived default tenant wins and the
+	 * Login handler authenticates against the wrong tenant.
+	 */
+	private buildUrl(path: string): string {
+		if (typeof window !== 'undefined') {
+			const { base } = parseTenantFromPath(window.location.pathname);
+			if (base && path.startsWith('/api/')) {
+				return `${this.baseUrl}${base}${path}`;
+			}
+		}
+		return `${this.baseUrl}${path}`;
+	}
+
 	private async request<T>(
 		method: string,
 		path: string,
 		body?: unknown,
 		options?: { headers?: Record<string, string> }
 	): Promise<T> {
-		const url = `${this.baseUrl}${path}`;
+		const url = this.buildUrl(path);
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/json',
 			Accept: 'application/json',
