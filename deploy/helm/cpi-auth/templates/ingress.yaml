@@ -58,10 +58,15 @@ spec:
           # Admin UI routes — must come BEFORE the /admin → core rule below
           # so they take precedence. The admin UI is mounted at /admin/ and
           # uses path patterns that don't collide with the admin API:
-          #   /admin/login, /admin/system/*, /admin/t/*  → admin-ui (SPA)
-          #   /admin/assets/*                            → admin-ui (Vite assets)
-          #   /admin/                                    → admin-ui (root, redirects internally)
-          - path: /admin/(login|system|t|assets|index\.html)
+          #   /admin/login            → admin-ui SPA
+          #   /admin/system/*         → admin-ui SPA
+          #   /admin/t/{slug}/...     → admin-ui SPA
+          #   /admin/assets/*         → admin-ui (Vite assets)
+          #
+          # The trailing /  on `t/` is critical: a bare `t` would also match
+          # /admin/tenants (admin API) because nginx regex matches a substring
+          # at the start. Using `t/` forces the prefix to be exactly /admin/t/.
+          - path: /admin/(login(/|$)|system(/|$)|t/|assets/|index\.html)
             pathType: ImplementationSpecific
             backend:
               service:
