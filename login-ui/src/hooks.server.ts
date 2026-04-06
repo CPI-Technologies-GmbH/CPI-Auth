@@ -1,17 +1,9 @@
-import type { Handle, Reroute } from '@sveltejs/kit';
-import { parseTenantFromPath, stripTenantPrefix, tenantPath } from '$lib/tenant';
+import type { Handle } from '@sveltejs/kit';
+import { parseTenantFromPath, tenantPath } from '$lib/tenant';
 
-/**
- * Reroute hook: when the request URL has a /t/{slug}/ prefix, route the
- * request as if it came in without the prefix so SvelteKit's filesystem
- * router matches the same Svelte page that handles the legacy URL. The
- * URL the browser sees is unchanged; tenant detection happens in handle.
- */
-export const reroute: Reroute = ({ url }) => {
-	if (url.pathname.startsWith('/t/')) {
-		return stripTenantPrefix(url.pathname);
-	}
-};
+// NOTE: the reroute hook for /t/{slug}/ prefix lives in src/hooks.ts so that
+// it runs as part of route resolution on both server and client. Putting it
+// in hooks.server.ts is silently ignored by SvelteKit.
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Detect tenant from the original (browser-visible) URL.
