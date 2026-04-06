@@ -50,6 +50,19 @@ spec:
                 port:
                   number: 5050
           {{- end }}
+          # Path-based tenant routing — /t/{slug}/* hits the core service.
+          # The PathBasedTenantResolver wrapper in core strips the prefix and
+          # sets the tenant in context, so chi routes /t/lastsoftware/oauth/
+          # authorize through the existing /oauth/authorize handler. UI
+          # routes (login, register, etc.) under /t/{slug}/ are added once
+          # the login-ui supports the base path; until then they 404 here.
+          - path: /t/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $coreSvc }}
+                port:
+                  number: 5050
           - path: /health
             pathType: Exact
             backend:
