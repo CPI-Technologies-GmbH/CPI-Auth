@@ -146,12 +146,12 @@ INSERT INTO users (id, tenant_id, email, email_verified, name, password_hash, st
     '{"roles": ["admin"], "is_system_admin": true}'
 );
 
--- Assign admin role to admin user (using null-org placeholder)
-INSERT INTO user_roles (user_id, role_id, organization_id) VALUES (
-    'c0000000-0000-0000-0000-000000000001',
-    'b0000000-0000-0000-0000-000000000001',
-    '00000000-0000-0000-0000-000000000000'
-);
+-- NOTE: the admin role assignment was originally inserted here with a
+-- placeholder organization_id, but the FK on user_roles.organization_id
+-- means a fresh install fails this INSERT (no such org exists). Migration
+-- 014 makes organization_id nullable, drops the FK, and inserts the
+-- assignment idempotently with ON CONFLICT DO NOTHING. Existing
+-- installations where this insert previously succeeded are unaffected.
 
 -- ============================================================
 -- Default application
