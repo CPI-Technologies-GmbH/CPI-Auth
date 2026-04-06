@@ -224,7 +224,11 @@ func (h *Handler) DeviceToken(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DeviceAuthorize handles POST /oauth/device/authorize (authenticated).
+// DeviceAuthorize handles POST /oauth/device/authorize.
+//
+// Authentication is resolved from a Bearer token (admin-UI style) OR a session
+// cookie set by the login flow, since this endpoint is called from the
+// browser-based /device page after the user logs in.
 func (h *Handler) DeviceAuthorize(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		UserCode string `json:"user_code"`
@@ -239,7 +243,34 @@ func (h *Handler) DeviceAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Bearer token (if route is wrapped in Authentication middleware, this is set)
 	userID := middleware.GetUserID(r.Context())
+
+	// 2. Bearer token from header (route not wrapped — parse it ourselves)
+	if userID == uuid.Nil {
+		if auth := r.Header.Get("Authorization"); auth != "" {
+			parts := strings.SplitN(auth, " ", 2)
+			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+				if claims, err := h.tokenSvc.ValidateAccessToken(r.Context(), parts[1]); err == nil {
+					if uid, perr := uuid.Parse(claims.Subject); perr == nil {
+						userID = uid
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Session cookie (browser flow — user logged in via login UI)
+	if userID == uuid.Nil {
+		if cookie, err := r.Cookie(sessionCookieName); err == nil && cookie.Value != "" {
+			if sessionID, parseErr := uuid.Parse(cookie.Value); parseErr == nil && h.sessionSvc != nil {
+				if sess, sessErr := h.sessionSvc.Validate(r.Context(), sessionID); sessErr == nil && sess != nil {
+					userID = sess.UserID
+				}
+			}
+		}
+	}
+
 	if userID == uuid.Nil {
 		middleware.WriteError(w, models.ErrUnauthorized)
 		return

@@ -38,26 +38,30 @@
 		loading = true;
 
 		try {
-			// First check if user is logged in by trying /admin/auth/me
+			// Authorize directly. The endpoint accepts either a Bearer token
+			// (admin UI) or the session cookie set by the browser login flow.
 			const apiUrl = env.PUBLIC_API_URL || '';
-			const meRes = await fetch(`${apiUrl}/admin/auth/me`, {
+			const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+			// Forward an admin-UI Bearer token from localStorage if available.
+			try {
+				const bearer = localStorage.getItem('access_token');
+				if (bearer) headers['Authorization'] = `Bearer ${bearer}`;
+			} catch {}
+
+			const res = await fetch(`${apiUrl}/oauth/device/authorize`, {
+				method: 'POST',
 				credentials: 'include',
+				headers,
+				body: JSON.stringify({ user_code: code }),
 			});
 
-			if (!meRes.ok) {
-				// Not logged in — redirect to login, then come back
+			if (res.status === 401) {
+				// Not logged in — bounce through the login UI and come back here.
 				const returnUrl = `/device?code=${code}`;
 				window.location.href = `/login?return_to=${encodeURIComponent(returnUrl)}`;
 				return;
 			}
-
-			// User is logged in — authorize the device code
-			const res = await fetch(`${apiUrl}/oauth/device/authorize`, {
-				method: 'POST',
-				credentials: 'include',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ user_code: code }),
-			});
 
 			if (!res.ok) {
 				const data = await res.json().catch(() => ({}));

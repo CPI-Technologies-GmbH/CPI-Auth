@@ -259,11 +259,9 @@ func main() {
 	authHandler := authAPI.NewHandler(oauthSvc, userSvc, tokenSvc, sessionSvc, mfaSvc, webauthnSvc, eventSvc, rbacSvc, actionPipeline, deviceCodeRepo, cfg, logger)
 	authHandler.RegisterRoutes(r)
 
-	// Device authorization (authenticated endpoint)
-	r.Group(func(r chi.Router) {
-		r.Use(mw.Authentication(tokenSvc))
-		r.Post("/oauth/device/authorize", authHandler.DeviceAuthorize)
-	})
+	// Device authorization — auth is resolved inside the handler
+	// (Bearer header OR session cookie set by the browser login flow).
+	r.Post("/oauth/device/authorize", authHandler.DeviceAuthorize)
 
 	// Public branding endpoint (no auth, used by login-ui)
 	r.Get("/api/v1/branding", func(w http.ResponseWriter, r *http.Request) {
