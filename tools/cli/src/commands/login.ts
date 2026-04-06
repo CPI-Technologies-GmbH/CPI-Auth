@@ -101,14 +101,15 @@ async function loginWithDeviceAuth(server: string, tenantId?: string) {
     i++
 
     try {
+      // RFC 8628 requires application/x-www-form-urlencoded for the token endpoint.
       const res = await fetch(`${server}/oauth/device/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
           device_code,
           client_id: 'cpi-auth-cli',
           grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        }),
+        }).toString(),
       })
 
       const data = await res.json() as any
@@ -169,6 +170,12 @@ async function loginWithDeviceAuth(server: string, tenantId?: string) {
       if (data.error === 'access_denied') {
         process.stdout.write('\r')
         error('Authorization denied.')
+        process.exit(1)
+      }
+      // Unknown error — surface it instead of polling forever
+      if (data.error) {
+        process.stdout.write('\r')
+        error(`Unexpected token endpoint error: ${data.error}${data.error_description ? ` (${data.error_description})` : ''}`)
         process.exit(1)
       }
     } catch {
