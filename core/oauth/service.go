@@ -466,6 +466,24 @@ func (s *Service) GetUserinfo(ctx context.Context, claims *tokens.AccessTokenCla
 	return info, nil
 }
 
+// ResolveAppTenant returns the tenant ID that owns the application identified
+// by clientID. Used by the login flow to authenticate against the application's
+// tenant rather than the host-derived request tenant, which matters when the
+// same email exists in multiple tenants.
+func (s *Service) ResolveAppTenant(ctx context.Context, clientID string) (uuid.UUID, error) {
+	if clientID == "" {
+		return uuid.Nil, models.ErrBadRequest.WithMessage("client_id is required")
+	}
+	app, err := s.apps.GetByClientID(ctx, clientID)
+	if err != nil {
+		if models.IsAppError(err, models.ErrNotFound) {
+			return uuid.Nil, models.ErrInvalidClient.WithMessage("Unknown client_id.")
+		}
+		return uuid.Nil, err
+	}
+	return app.TenantID, nil
+}
+
 // IssuerForDomain returns the issuer URL for a specific tenant domain.
 // Falls back to the global issuer if domain is empty.
 func (s *Service) IssuerForDomain(domain string) string {

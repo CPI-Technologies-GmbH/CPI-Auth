@@ -523,6 +523,30 @@ func TestAuthorize_CustomScopeAllowed(t *testing.T) {
 	}
 }
 
+func TestResolveAppTenant(t *testing.T) {
+	svc, appRepo, _, _, _ := testOAuthService()
+	tenantID := uuid.New()
+	app := createTestApp(appRepo, tenantID, models.AppTypeSPA)
+
+	got, err := svc.ResolveAppTenant(context.Background(), app.ClientID)
+	if err != nil {
+		t.Fatalf("ResolveAppTenant returned error: %v", err)
+	}
+	if got != tenantID {
+		t.Errorf("tenant = %v, want %v", got, tenantID)
+	}
+
+	if _, err := svc.ResolveAppTenant(context.Background(), "unknown-client"); err == nil {
+		t.Error("expected error for unknown client_id")
+	} else if !models.IsAppError(err, models.ErrInvalidClient) {
+		t.Errorf("expected ErrInvalidClient, got %v", err)
+	}
+
+	if _, err := svc.ResolveAppTenant(context.Background(), ""); err == nil {
+		t.Error("expected error for empty client_id")
+	}
+}
+
 func TestAuthorize_RejectsCrossTenantUser(t *testing.T) {
 	// Regression for the bug where a user logged into tenant A could request
 	// an auth code for an app in tenant B. The grant would be created with

@@ -549,6 +549,20 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	tenantID := middleware.GetTenantID(ctx)
 
+	// If the login is part of an OAuth flow, the application's tenant must
+	// take precedence over the host-derived tenant — otherwise a user with
+	// the same email in the default tenant would be authenticated instead of
+	// the user that actually belongs to the app's tenant.
+	if req.ClientID != "" {
+		appTenantID, err := h.oauthSvc.ResolveAppTenant(ctx, req.ClientID)
+		if err != nil {
+			middleware.WriteError(w, err)
+			return
+		}
+		tenantID = appTenantID
+		ctx = context.WithValue(ctx, middleware.ContextKeyTenantID, tenantID)
+	}
+
 	// Execute pre-login actions
 	if h.actionPipeline != nil {
 		preResult, err := h.actionPipeline.Execute(ctx, tenantID, actions.TriggerPreLogin, &actions.ActionContext{
