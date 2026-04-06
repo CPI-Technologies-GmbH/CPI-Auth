@@ -314,9 +314,17 @@ func main() {
 			}
 		}
 
-		// Add tenant name as fallback app_name
+		// Always expose the tenant name so the login UI can show "Sign in to {tenant}".
+		branding["tenant_name"] = tenant.Name
+		branding["tenant_slug"] = tenant.Slug
+
+		// app_name resolution: explicit branding override > application name > tenant name.
 		if _, ok := branding["app_name"]; !ok {
-			branding["app_name"] = tenant.Name
+			if app != nil && app.Name != "" {
+				branding["app_name"] = app.Name
+			} else {
+				branding["app_name"] = tenant.Name
+			}
 		}
 
 		mw.WriteJSON(w, http.StatusOK, branding)

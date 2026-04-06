@@ -177,7 +177,7 @@ func (h *Handler) AuthorizeGet(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.oauthSvc.Authorize(ctx, userID, req)
 	if err != nil {
-		middleware.WriteError(w, err)
+		h.writeOAuthAuthorizeError(w, r, err, r.URL.Query())
 		return
 	}
 
@@ -711,10 +711,18 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	// Redirect to post-logout URL if provided, otherwise return 200
-	postLogoutURL := r.URL.Query().Get("post_logout_redirect_uri")
-	if postLogoutURL != "" {
+	// Redirect to post-logout URL if provided.
+	if postLogoutURL := r.URL.Query().Get("post_logout_redirect_uri"); postLogoutURL != "" {
 		http.Redirect(w, r, postLogoutURL, http.StatusFound)
+		return
+	}
+	// "Switch account" flow from the OAuth error page: bounce back to a
+	// same-origin path so the user re-enters the OAuth flow without their
+	// previous session. Restricted to single-leading-slash paths to avoid
+	// open-redirect.
+	if returnTo := r.URL.Query().Get("return_to"); returnTo != "" &&
+		strings.HasPrefix(returnTo, "/") && !strings.HasPrefix(returnTo, "//") {
+		http.Redirect(w, r, returnTo, http.StatusFound)
 		return
 	}
 

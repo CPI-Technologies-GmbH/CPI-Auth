@@ -23,6 +23,8 @@ export interface BrandingConfig {
 	custom_css: string;
 	dark_mode: boolean;
 	app_name: string;
+	tenant_name?: string;
+	tenant_slug?: string;
 	social_providers: SocialProvider[];
 	custom_fields: CustomField[];
 	passkeys_enabled: boolean;

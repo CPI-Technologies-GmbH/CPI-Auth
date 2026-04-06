@@ -32,6 +32,13 @@
 	let providers = $derived($branding?.social_providers || []);
 	let passkeysEnabled = $derived($branding?.passkeys_enabled ?? false);
 	let magicLinkEnabled = $derived($branding?.magic_link_enabled ?? false);
+	// Tenant context: when an OAuth flow brought the user here, prefer the
+	// application's name (with the tenant name as a hint), so the user knows
+	// exactly *what* they're signing in to. This is the user-visible piece of
+	// the multi-tenant model.
+	let appLabel = $derived($branding?.app_name || '');
+	let tenantLabel = $derived($branding?.tenant_name || '');
+	let showAppContext = $derived(!!oauth && !!appLabel);
 
 	$effect(() => {
 		if (oauth) oauthParams.set(oauth);
@@ -195,6 +202,13 @@
 			<h1 class="text-2xl font-bold" style="color: var(--af-color-text)">
 				{$t('login.title')}
 			</h1>
+			{#if showAppContext}
+				<p class="mt-2 text-sm" style="color: var(--af-color-text-muted)">
+					to continue to <span class="font-semibold" style="color: var(--af-color-text)">{appLabel}</span>{#if tenantLabel && tenantLabel !== appLabel}
+						<span class="opacity-75"> · {tenantLabel}</span>
+					{/if}
+				</p>
+			{/if}
 		</div>
 
 		{#if loginSuccess}

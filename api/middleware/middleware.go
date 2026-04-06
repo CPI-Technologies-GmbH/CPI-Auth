@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -172,7 +173,41 @@ func RequirePermission(rbac *policy.RBACService, permission string) func(http.Ha
 	}
 }
 
+// reservedSubdomains are the labels that must never resolve to a tenant via
+// the subdomain branch of TenantResolver, even if a tenant with that slug
+// exists. This prevents trivial hostname hijacks (e.g. someone creating a
+// tenant with slug "auth" and capturing auth.cpi.dev).
+var reservedSubdomains = map[string]bool{
+	"auth":    true,
+	"admin":   true,
+	"api":     true,
+	"www":     true,
+	"app":     true,
+	"login":   true,
+	"account": true,
+	"mail":    true,
+	"static":  true,
+	"assets":  true,
+	"cdn":     true,
+	"t":       true, // reserved for the path-based /t/{slug}/ scheme
+}
+
+// validSubdomainSlug matches the slug format we accept as a tenant subdomain
+// label: 2-32 chars, lowercase alphanumerics and dashes, not starting or
+// ending with a dash.
+var validSubdomainSlug = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$`)
+
 // TenantResolver resolves the tenant from subdomain, header, or token.
+//
+// Resolution order:
+//  1. Existing tenant in context (e.g. from JWT middleware) — passthrough.
+//  2. X-Tenant-ID header.
+//  3. URL path prefix /t/{slug}/ — strips the prefix from the request URL
+//     so downstream handlers see clean paths. This is the default
+//     multi-tenant routing scheme.
+//  4. Hostname: first checked against the configured base host (no tenant);
+//     then as a subdomain label (after blacklist + format validation);
+//     then as a custom domain via the verified-domains table.
 func TenantResolver(tenantRepo models.TenantRepository) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +221,7 @@ func TenantResolver(tenantRepo models.TenantRepository) func(http.Handler) http.
 
 			var tenantID uuid.UUID
 
-			// Try X-Tenant-ID header
+			// 1. X-Tenant-ID header (admin tools, internal calls)
 			if headerID := r.Header.Get("X-Tenant-ID"); headerID != "" {
 				parsed, err := uuid.Parse(headerID)
 				if err == nil {
@@ -194,28 +229,56 @@ func TenantResolver(tenantRepo models.TenantRepository) func(http.Handler) http.
 				}
 			}
 
-			// Try subdomain
-			if tenantID == uuid.Nil {
-				host := r.Host
-				parts := strings.Split(host, ".")
-				if len(parts) >= 3 {
-					slug := parts[0]
+			// 2. Path prefix /t/{slug}/...
+			if tenantID == uuid.Nil && strings.HasPrefix(r.URL.Path, "/t/") {
+				rest := r.URL.Path[len("/t/"):]
+				slug := rest
+				remainder := "/"
+				if i := strings.Index(rest, "/"); i >= 0 {
+					slug = rest[:i]
+					remainder = rest[i:]
+				}
+				if validSubdomainSlug.MatchString(slug) {
 					tenant, err := tenantRepo.GetBySlug(ctx, slug)
 					if err == nil {
 						tenantID = tenant.ID
+						// Strip the /t/{slug} prefix so downstream handlers
+						// continue to see clean URLs (e.g. /oauth/authorize).
+						r2 := r.Clone(r.Context())
+						r2.URL.Path = remainder
+						r2.URL.RawPath = ""
+						r = r2
 					}
 				}
 			}
 
-			// Try custom domain (strip port if present)
+			// 3. Hostname: subdomain or custom domain.
 			if tenantID == uuid.Nil {
 				host := r.Host
 				if idx := strings.LastIndex(host, ":"); idx != -1 {
 					host = host[:idx]
 				}
-				tenant, err := tenantRepo.GetByDomain(ctx, host)
-				if err == nil {
-					tenantID = tenant.ID
+				host = strings.ToLower(host)
+
+				// 3a. Subdomain branch — only if the first label is non-reserved
+				// and matches the slug format.
+				parts := strings.Split(host, ".")
+				if len(parts) >= 3 {
+					slug := parts[0]
+					if !reservedSubdomains[slug] && validSubdomainSlug.MatchString(slug) {
+						tenant, err := tenantRepo.GetBySlug(ctx, slug)
+						if err == nil {
+							tenantID = tenant.ID
+						}
+					}
+				}
+
+				// 3b. Custom domain branch (e.g. login.example.com)
+				if tenantID == uuid.Nil {
+					tenant, err := tenantRepo.GetByDomain(ctx, host)
+					if err == nil {
+						tenantID = tenant.ID
+					}
 				}
 			}
 
