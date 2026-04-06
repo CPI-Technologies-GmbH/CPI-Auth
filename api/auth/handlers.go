@@ -39,6 +39,7 @@ type Handler struct {
 	rbacSvc        *policy.RBACService
 	actionPipeline *actions.Pipeline
 	deviceCodeRepo models.DeviceCodeRepository
+	tenantRepo     models.TenantRepository
 	cfg            *config.Config
 	logger         *zap.Logger
 }
@@ -55,6 +56,7 @@ func NewHandler(
 	rbacSvc *policy.RBACService,
 	actionPipeline *actions.Pipeline,
 	deviceCodeRepo models.DeviceCodeRepository,
+	tenantRepo models.TenantRepository,
 	cfg *config.Config,
 	logger *zap.Logger,
 ) *Handler {
@@ -69,6 +71,7 @@ func NewHandler(
 		rbacSvc:        rbacSvc,
 		actionPipeline: actionPipeline,
 		deviceCodeRepo: deviceCodeRepo,
+		tenantRepo:     tenantRepo,
 		cfg:            cfg,
 		logger:         logger,
 	}
@@ -269,12 +272,19 @@ func (h *Handler) Userinfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Discovery(w http.ResponseWriter, r *http.Request) {
-	// Use request Host for per-tenant issuer URLs
-	host := r.Host
-	if idx := strings.LastIndex(host, ":"); idx != -1 {
-		host = host[:idx]
+	// When a tenant has been resolved (via /t/{slug}/, X-Tenant-ID,
+	// subdomain or custom domain) emit the discovery document scoped to
+	// that tenant so the issuer + endpoint URLs match where the request
+	// came in. Otherwise emit the global discovery document — *not* a
+	// host-derived one, because spoofing the Host header should not
+	// influence the issuer claim that downstream RPs trust.
+	if tid := middleware.GetTenantID(r.Context()); tid != uuid.Nil && h.tenantRepo != nil {
+		if tenant, err := h.tenantRepo.GetByID(r.Context(), tid); err == nil && tenant != nil {
+			middleware.WriteJSON(w, http.StatusOK, h.oauthSvc.DiscoveryDocumentForTenant(tenant))
+			return
+		}
 	}
-	middleware.WriteJSON(w, http.StatusOK, h.oauthSvc.DiscoveryDocumentForDomain(host))
+	middleware.WriteJSON(w, http.StatusOK, h.oauthSvc.DiscoveryDocument())
 }
 
 func (h *Handler) JWKS(w http.ResponseWriter, r *http.Request) {

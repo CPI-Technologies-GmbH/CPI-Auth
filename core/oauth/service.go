@@ -24,6 +24,7 @@ type Service struct {
 	apps        models.ApplicationRepository
 	grants      models.OAuthGrantRepository
 	users       models.UserRepository
+	tenants     models.TenantRepository
 	tokenSvc    *tokens.Service
 	rbacSvc     *policy.RBACService
 	appPermRepo models.ApplicationPermissionRepository
@@ -36,6 +37,7 @@ func NewService(
 	apps models.ApplicationRepository,
 	grants models.OAuthGrantRepository,
 	users models.UserRepository,
+	tenants models.TenantRepository,
 	tokenSvc *tokens.Service,
 	rbacSvc *policy.RBACService,
 	appPermRepo models.ApplicationPermissionRepository,
@@ -46,12 +48,27 @@ func NewService(
 		apps:        apps,
 		grants:      grants,
 		users:       users,
+		tenants:     tenants,
 		tokenSvc:    tokenSvc,
 		rbacSvc:     rbacSvc,
 		appPermRepo: appPermRepo,
 		cfg:         cfg,
 		logger:      logger,
 	}
+}
+
+// issuerForTenantID resolves a tenant by ID and returns its canonical issuer
+// URL. Falls back to the global config issuer if the tenant cannot be loaded
+// or has no specific issuer configured.
+func (s *Service) issuerForTenantID(ctx context.Context, tenantID uuid.UUID) string {
+	if s.tenants == nil || tenantID == uuid.Nil {
+		return s.cfg.Security.Issuer
+	}
+	tenant, err := s.tenants.GetByID(ctx, tenantID)
+	if err != nil || tenant == nil {
+		return s.cfg.Security.Issuer
+	}
+	return s.IssuerForTenant(tenant)
 }
 
 // AuthorizeRequest holds authorization endpoint parameters.
@@ -275,6 +292,7 @@ func (s *Service) exchangeAuthorizationCode(ctx context.Context, req TokenReques
 		AccessTokenTTL:  app.AccessTokenTTL,
 		RefreshTokenTTL: app.RefreshTokenTTL,
 		IDTokenTTL:      app.IDTokenTTL,
+		Issuer:          s.issuerForTenantID(ctx, app.TenantID),
 	})
 }
 
@@ -334,6 +352,7 @@ func (s *Service) exchangeRefreshToken(ctx context.Context, req TokenRequest) (*
 		AccessTokenTTL:  app.AccessTokenTTL,
 		RefreshTokenTTL: app.RefreshTokenTTL,
 		IDTokenTTL:      app.IDTokenTTL,
+		Issuer:          s.issuerForTenantID(ctx, app.TenantID),
 	})
 	if err != nil {
 		return nil, err
@@ -379,7 +398,7 @@ func (s *Service) exchangeClientCredentials(ctx context.Context, req TokenReques
 
 	now := time.Now().UTC()
 	accessClaims := tokens.AccessTokenClaims{}
-	accessClaims.Issuer = s.cfg.Security.Issuer
+	accessClaims.Issuer = s.issuerForTenantID(ctx, app.TenantID)
 	accessClaims.Subject = app.ClientID
 	accessClaims.Audience = []string{app.ID.String()}
 	accessClaims.IssuedAt = &jwt.NumericDate{Time: now}
@@ -497,6 +516,38 @@ func (s *Service) IssuerForDomain(domain string) string {
 	return s.cfg.Security.Issuer
 }
 
+// IssuerForTenant returns the canonical issuer URL for a tenant.
+//
+// Resolution order:
+//  1. Tenant-specific issuer_url stored in the tenants table.
+//  2. Custom domain (https://{tenant.domain}).
+//  3. Path-based default: ${global issuer}/t/{slug} — this is what
+//     /oauth/authorize redirects produce by default in the path-based
+//     routing scheme.
+//
+// The returned issuer is what the iss claim of all tokens for this tenant
+// will carry, and what the discovery document will advertise.
+func (s *Service) IssuerForTenant(tenant *models.Tenant) string {
+	if tenant == nil {
+		return s.cfg.Security.Issuer
+	}
+	if tenant.IssuerURL != "" {
+		return strings.TrimRight(tenant.IssuerURL, "/")
+	}
+	if tenant.Domain != "" {
+		scheme := "https"
+		if strings.HasPrefix(s.cfg.Security.Issuer, "http://") {
+			scheme = "http"
+		}
+		return scheme + "://" + tenant.Domain
+	}
+	base := strings.TrimRight(s.cfg.Security.Issuer, "/")
+	if tenant.Slug == "" {
+		return base
+	}
+	return base + "/t/" + tenant.Slug
+}
+
 // DiscoveryDocument returns the OIDC discovery metadata.
 func (s *Service) DiscoveryDocument() map[string]interface{} {
 	return s.DiscoveryDocumentForDomain("")
@@ -504,7 +555,18 @@ func (s *Service) DiscoveryDocument() map[string]interface{} {
 
 // DiscoveryDocumentForDomain returns OIDC discovery for a specific tenant domain.
 func (s *Service) DiscoveryDocumentForDomain(domain string) map[string]interface{} {
-	issuer := s.IssuerForDomain(domain)
+	return s.discoveryFromIssuer(s.IssuerForDomain(domain))
+}
+
+// DiscoveryDocumentForTenant returns OIDC discovery for a specific tenant,
+// using the canonical issuer from IssuerForTenant. All endpoint URLs are
+// rooted at the tenant's issuer so RPs can hit them through whichever
+// resolution path the tenant uses (path-prefix, subdomain, custom domain).
+func (s *Service) DiscoveryDocumentForTenant(tenant *models.Tenant) map[string]interface{} {
+	return s.discoveryFromIssuer(s.IssuerForTenant(tenant))
+}
+
+func (s *Service) discoveryFromIssuer(issuer string) map[string]interface{} {
 	return map[string]interface{}{
 		"issuer":                                issuer,
 		"authorization_endpoint":                issuer + "/oauth/authorize",

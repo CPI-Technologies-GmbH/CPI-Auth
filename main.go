@@ -168,7 +168,7 @@ func main() {
 	eventSvc := events.NewService(nc, auditLogRepo, webhookRepo, logger)
 	mfaSvc := flows.NewMFAService(mfaRepo, recoveryCodeRepo, cfg, logger)
 	rbacSvc := policy.NewRBACService(roleRepo, logger)
-	oauthSvc := oauth.NewService(appRepo, grantRepo, userRepo, tokenSvc, rbacSvc, appPermRepo, cfg, logger)
+	oauthSvc := oauth.NewService(appRepo, grantRepo, userRepo, tenantRepo, tokenSvc, rbacSvc, appPermRepo, cfg, logger)
 	_ = policy.NewFGAService(db.NewFGATupleRepository(pool), logger)
 	actionPipeline := actions.NewPipeline(actionRepo, logger)
 	domainSvc := domains.NewService(domainVerificationRepo, tenantRepo, logger)
@@ -257,7 +257,7 @@ func main() {
 	deviceCodeRepo := db.NewDeviceCodeRepository(pool)
 
 	// --- Auth Routes (public) ---
-	authHandler := authAPI.NewHandler(oauthSvc, userSvc, tokenSvc, sessionSvc, mfaSvc, webauthnSvc, eventSvc, rbacSvc, actionPipeline, deviceCodeRepo, cfg, logger)
+	authHandler := authAPI.NewHandler(oauthSvc, userSvc, tokenSvc, sessionSvc, mfaSvc, webauthnSvc, eventSvc, rbacSvc, actionPipeline, deviceCodeRepo, tenantRepo, cfg, logger)
 	authHandler.RegisterRoutes(r)
 
 	// Device authorization — auth is resolved inside the handler
@@ -412,10 +412,15 @@ func main() {
 	})
 
 	// --- Start Server ---
+	// Wrap the chi router with the path-based tenant resolver. This must run
+	// BEFORE chi's trie walk so that /t/{slug}/oauth/authorize routes through
+	// the existing /oauth/authorize handler with the tenant set in context.
+	rootHandler := mw.PathBasedTenantResolver(tenantRepo, r)
+
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      r,
+		Handler:      rootHandler,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}

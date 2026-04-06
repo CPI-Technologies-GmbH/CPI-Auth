@@ -24,6 +24,7 @@ type contextKey string
 
 const (
 	ContextKeyTenantID      contextKey = "tenant_id"
+	ContextKeyTenantSlug    contextKey = "tenant_slug"
 	ContextKeyUserID        contextKey = "user_id"
 	ContextKeyClaims        contextKey = "claims"
 	ContextKeyCorrelationID contextKey = "correlation_id"
@@ -35,6 +36,16 @@ func GetTenantID(ctx context.Context) uuid.UUID {
 		return v
 	}
 	return uuid.Nil
+}
+
+// GetTenantSlug extracts the tenant slug from context, set by the
+// PathBasedTenantResolver. Returns "" when the tenant was not resolved by
+// slug (e.g. host-derived tenant or no tenant at all).
+func GetTenantSlug(ctx context.Context) string {
+	if v, ok := ctx.Value(ContextKeyTenantSlug).(string); ok {
+		return v
+	}
+	return ""
 }
 
 // GetUserID extracts user ID from context.
@@ -171,6 +182,46 @@ func RequirePermission(rbac *policy.RBACService, permission string) func(http.Ha
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// PathBasedTenantResolver wraps an http.Handler at the very top of the
+// pipeline (before chi's trie walk) and strips a /t/{slug}/ prefix from the
+// request URL, putting the resolved tenant ID into the context. This is what
+// makes the path-based multi-tenant URL scheme work — chi then sees a
+// "clean" URL like /oauth/authorize and routes it through the existing
+// handler tree, while the handlers read the tenant from the context.
+//
+// Requests without a /t/{slug}/ prefix pass through untouched so the legacy
+// non-prefixed URLs continue to work for the host-derived default tenant.
+func PathBasedTenantResolver(tenantRepo models.TenantRepository, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/t/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		rest := r.URL.Path[len("/t/"):]
+		slug := rest
+		remainder := "/"
+		if i := strings.Index(rest, "/"); i >= 0 {
+			slug = rest[:i]
+			remainder = rest[i:]
+		}
+		if !validSubdomainSlug.MatchString(slug) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		tenant, err := tenantRepo.GetBySlug(r.Context(), slug)
+		if err != nil || tenant == nil {
+			http.NotFound(w, r)
+			return
+		}
+		ctx := context.WithValue(r.Context(), ContextKeyTenantID, tenant.ID)
+		ctx = context.WithValue(ctx, ContextKeyTenantSlug, tenant.Slug)
+		r2 := r.Clone(ctx)
+		r2.URL.Path = remainder
+		r2.URL.RawPath = ""
+		next.ServeHTTP(w, r2)
+	})
 }
 
 // reservedSubdomains are the labels that must never resolve to a tenant via

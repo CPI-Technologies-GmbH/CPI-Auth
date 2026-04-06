@@ -240,16 +240,69 @@ func testAuthHandler() (*Handler, *mockAppRepoAuth, *mockUserRepoAuth, *tokens.S
 	appRepo := newMockAppRepoAuth()
 	grantRepo := newMockGrantRepoAuth()
 	userRepo := newMockUserRepoAuth()
+	tenantRepo := newMockTenantRepoAuth()
 	refreshRepo := newMockRefreshTokenRepoAuth()
 
 	keyPair, _ := crypto.GenerateRSAKeyPair(2048)
 	km := crypto.NewKeyManager(keyPair)
 	tokenSvc := tokens.NewService(km, refreshRepo, nil, cfg, logger)
-	oauthSvc := oauth.NewService(appRepo, grantRepo, userRepo, tokenSvc, nil, nil, cfg, logger)
+	oauthSvc := oauth.NewService(appRepo, grantRepo, userRepo, tenantRepo, tokenSvc, nil, nil, cfg, logger)
 	eventSvc := events.NewService(nil, &mockAuditLogRepoAuth{}, &mockWebhookRepoAuth{}, logger)
 
-	h := NewHandler(oauthSvc, nil, tokenSvc, nil, nil, nil, eventSvc, nil, nil, nil, nil, logger)
+	h := NewHandler(oauthSvc, nil, tokenSvc, nil, nil, nil, eventSvc, nil, nil, nil, tenantRepo, nil, logger)
 	return h, appRepo, userRepo, tokenSvc
+}
+
+// mockTenantRepoAuth is a minimal in-memory TenantRepository for handler tests.
+type mockTenantRepoAuth struct {
+	byID   map[uuid.UUID]*models.Tenant
+	bySlug map[string]*models.Tenant
+}
+
+func newMockTenantRepoAuth() *mockTenantRepoAuth {
+	return &mockTenantRepoAuth{
+		byID:   make(map[uuid.UUID]*models.Tenant),
+		bySlug: make(map[string]*models.Tenant),
+	}
+}
+func (m *mockTenantRepoAuth) Create(_ context.Context, t *models.Tenant) error {
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	m.byID[t.ID] = t
+	if t.Slug != "" {
+		m.bySlug[t.Slug] = t
+	}
+	return nil
+}
+func (m *mockTenantRepoAuth) GetByID(_ context.Context, id uuid.UUID) (*models.Tenant, error) {
+	if t, ok := m.byID[id]; ok {
+		return t, nil
+	}
+	return nil, models.ErrNotFound
+}
+func (m *mockTenantRepoAuth) GetBySlug(_ context.Context, slug string) (*models.Tenant, error) {
+	if t, ok := m.bySlug[slug]; ok {
+		return t, nil
+	}
+	return nil, models.ErrNotFound
+}
+func (m *mockTenantRepoAuth) GetByDomain(_ context.Context, _ string) (*models.Tenant, error) {
+	return nil, models.ErrNotFound
+}
+func (m *mockTenantRepoAuth) Update(_ context.Context, t *models.Tenant) error {
+	m.byID[t.ID] = t
+	if t.Slug != "" {
+		m.bySlug[t.Slug] = t
+	}
+	return nil
+}
+func (m *mockTenantRepoAuth) Delete(_ context.Context, id uuid.UUID) error {
+	delete(m.byID, id)
+	return nil
+}
+func (m *mockTenantRepoAuth) List(_ context.Context, _ models.PaginationParams) (*models.PaginatedResult[models.Tenant], error) {
+	return &models.PaginatedResult[models.Tenant]{}, nil
 }
 
 func withUserContext(r *http.Request, userID uuid.UUID) *http.Request {

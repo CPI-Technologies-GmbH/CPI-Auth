@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -271,11 +273,70 @@ func testOAuthConfig() *config.Config {
 	return cfg
 }
 
+// mockTenantRepoOAuth is a minimal in-memory TenantRepository used by the
+// oauth service tests so the issuer-per-tenant code path is exercised.
+type mockTenantRepoOAuth struct {
+	byID   map[uuid.UUID]*models.Tenant
+	bySlug map[string]*models.Tenant
+}
+
+func newMockTenantRepoOAuth() *mockTenantRepoOAuth {
+	return &mockTenantRepoOAuth{
+		byID:   make(map[uuid.UUID]*models.Tenant),
+		bySlug: make(map[string]*models.Tenant),
+	}
+}
+func (m *mockTenantRepoOAuth) Create(_ context.Context, t *models.Tenant) error {
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	m.byID[t.ID] = t
+	if t.Slug != "" {
+		m.bySlug[t.Slug] = t
+	}
+	return nil
+}
+func (m *mockTenantRepoOAuth) GetByID(_ context.Context, id uuid.UUID) (*models.Tenant, error) {
+	if t, ok := m.byID[id]; ok {
+		return t, nil
+	}
+	return nil, models.ErrNotFound
+}
+func (m *mockTenantRepoOAuth) GetBySlug(_ context.Context, slug string) (*models.Tenant, error) {
+	if t, ok := m.bySlug[slug]; ok {
+		return t, nil
+	}
+	return nil, models.ErrNotFound
+}
+func (m *mockTenantRepoOAuth) GetByDomain(_ context.Context, _ string) (*models.Tenant, error) {
+	return nil, models.ErrNotFound
+}
+func (m *mockTenantRepoOAuth) Update(_ context.Context, t *models.Tenant) error {
+	m.byID[t.ID] = t
+	if t.Slug != "" {
+		m.bySlug[t.Slug] = t
+	}
+	return nil
+}
+func (m *mockTenantRepoOAuth) Delete(_ context.Context, id uuid.UUID) error {
+	delete(m.byID, id)
+	return nil
+}
+func (m *mockTenantRepoOAuth) List(_ context.Context, _ models.PaginationParams) (*models.PaginatedResult[models.Tenant], error) {
+	return &models.PaginatedResult[models.Tenant]{}, nil
+}
+
 func testOAuthService() (*Service, *mockAppRepo, *mockGrantRepo, *mockUserRepoOAuth, *tokens.Service) {
+	svc, appRepo, grantRepo, userRepo, tokenSvc, _ := testOAuthServiceWithTenants()
+	return svc, appRepo, grantRepo, userRepo, tokenSvc
+}
+
+func testOAuthServiceWithTenants() (*Service, *mockAppRepo, *mockGrantRepo, *mockUserRepoOAuth, *tokens.Service, *mockTenantRepoOAuth) {
 	cfg := testOAuthConfig()
 	appRepo := newMockAppRepo()
 	grantRepo := newMockGrantRepo()
 	userRepo := newMockUserRepoOAuth()
+	tenantRepo := newMockTenantRepoOAuth()
 	refreshRepo := newMockRefreshTokenRepoOAuth()
 	logger := zap.NewNop()
 
@@ -283,8 +344,8 @@ func testOAuthService() (*Service, *mockAppRepo, *mockGrantRepo, *mockUserRepoOA
 	km := crypto.NewKeyManager(keyPair)
 	tokenSvc := tokens.NewService(km, refreshRepo, nil, cfg, logger)
 
-	svc := NewService(appRepo, grantRepo, userRepo, tokenSvc, nil, nil, cfg, logger)
-	return svc, appRepo, grantRepo, userRepo, tokenSvc
+	svc := NewService(appRepo, grantRepo, userRepo, tenantRepo, tokenSvc, nil, nil, cfg, logger)
+	return svc, appRepo, grantRepo, userRepo, tokenSvc, tenantRepo
 }
 
 func createTestApp(appRepo *mockAppRepo, tenantID uuid.UUID, appType models.ApplicationType) *models.Application {
@@ -520,6 +581,141 @@ func TestAuthorize_CustomScopeAllowed(t *testing.T) {
 	}
 	if resp.Code == "" {
 		t.Error("Code should not be empty")
+	}
+}
+
+func TestIssuerForTenant(t *testing.T) {
+	svc, _, _, _, _ := testOAuthService()
+
+	t.Run("nil tenant falls back to global issuer", func(t *testing.T) {
+		got := svc.IssuerForTenant(nil)
+		if got != "https://auth.example.com" {
+			t.Errorf("got %q, want %q", got, "https://auth.example.com")
+		}
+	})
+
+	t.Run("explicit issuer_url wins over everything", func(t *testing.T) {
+		tenant := &models.Tenant{
+			Slug:      "lastsoftware",
+			Domain:    "login.lastsoftware.com",
+			IssuerURL: "https://issuer.example.org/",
+		}
+		got := svc.IssuerForTenant(tenant)
+		// Trailing slash must be trimmed.
+		if got != "https://issuer.example.org" {
+			t.Errorf("got %q, want %q", got, "https://issuer.example.org")
+		}
+	})
+
+	t.Run("custom domain wins when no explicit issuer", func(t *testing.T) {
+		tenant := &models.Tenant{Slug: "lastsoftware", Domain: "login.lastsoftware.com"}
+		got := svc.IssuerForTenant(tenant)
+		if got != "https://login.lastsoftware.com" {
+			t.Errorf("got %q, want %q", got, "https://login.lastsoftware.com")
+		}
+	})
+
+	t.Run("path-based default uses /t/{slug}", func(t *testing.T) {
+		tenant := &models.Tenant{Slug: "lastsoftware"}
+		got := svc.IssuerForTenant(tenant)
+		if got != "https://auth.example.com/t/lastsoftware" {
+			t.Errorf("got %q, want %q", got, "https://auth.example.com/t/lastsoftware")
+		}
+	})
+
+	t.Run("empty slug falls back to global", func(t *testing.T) {
+		tenant := &models.Tenant{}
+		got := svc.IssuerForTenant(tenant)
+		if got != "https://auth.example.com" {
+			t.Errorf("got %q, want %q", got, "https://auth.example.com")
+		}
+	})
+}
+
+func TestDiscoveryDocumentForTenant(t *testing.T) {
+	svc, _, _, _, _ := testOAuthService()
+	tenant := &models.Tenant{Slug: "lastsoftware"}
+
+	doc := svc.DiscoveryDocumentForTenant(tenant)
+	if doc["issuer"] != "https://auth.example.com/t/lastsoftware" {
+		t.Errorf("issuer = %v", doc["issuer"])
+	}
+	if doc["authorization_endpoint"] != "https://auth.example.com/t/lastsoftware/oauth/authorize" {
+		t.Errorf("authorization_endpoint = %v", doc["authorization_endpoint"])
+	}
+	if doc["token_endpoint"] != "https://auth.example.com/t/lastsoftware/oauth/token" {
+		t.Errorf("token_endpoint = %v", doc["token_endpoint"])
+	}
+	if doc["jwks_uri"] != "https://auth.example.com/t/lastsoftware/.well-known/jwks.json" {
+		t.Errorf("jwks_uri = %v", doc["jwks_uri"])
+	}
+}
+
+func TestExchangeAuthorizationCode_TokenIssuerIsTenantSpecific(t *testing.T) {
+	// End-to-end check: a code issued for an app in a tenant with a path-based
+	// canonical issuer must produce tokens whose iss claim matches that issuer.
+	svc, appRepo, grantRepo, userRepo, _, tenantRepo := testOAuthServiceWithTenants()
+
+	tenantID := uuid.New()
+	tenant := &models.Tenant{
+		ID:   tenantID,
+		Slug: "lastsoftware",
+		Name: "LastSoftware",
+	}
+	tenantRepo.Create(context.Background(), tenant)
+
+	user := createTestUser(userRepo, tenantID)
+	app := createTestApp(appRepo, tenantID, models.AppTypeSPA)
+
+	verifier := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	challenge := generateCodeChallenge(verifier)
+
+	// Authorize first to create the grant.
+	req := AuthorizeRequest{
+		ClientID:            app.ClientID,
+		RedirectURI:         "https://app.example.com/callback",
+		ResponseType:        "code",
+		Scope:               "openid",
+		CodeChallenge:       challenge,
+		CodeChallengeMethod: "S256",
+	}
+	authResp, err := svc.Authorize(context.Background(), user.ID, req)
+	if err != nil {
+		t.Fatalf("Authorize: %v", err)
+	}
+
+	// Verify the grant was stored so the next step has something to exchange.
+	if len(grantRepo.grants) == 0 {
+		t.Fatal("no grant created")
+	}
+
+	pair, err := svc.exchangeAuthorizationCode(context.Background(), TokenRequest{
+		GrantType:    "authorization_code",
+		Code:         authResp.Code,
+		RedirectURI:  "https://app.example.com/callback",
+		ClientID:     app.ClientID,
+		CodeVerifier: verifier,
+	})
+	if err != nil {
+		t.Fatalf("exchangeAuthorizationCode: %v", err)
+	}
+
+	// Decode the access token and check the iss claim.
+	parts := strings.Split(pair.AccessToken, ".")
+	if len(parts) != 3 {
+		t.Fatalf("malformed access token")
+	}
+	payloadJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatalf("decoding payload: %v", err)
+	}
+	var payload map[string]interface{}
+	if err := json.Unmarshal(payloadJSON, &payload); err != nil {
+		t.Fatalf("unmarshaling payload: %v", err)
+	}
+	want := "https://auth.example.com/t/lastsoftware"
+	if payload["iss"] != want {
+		t.Errorf("iss = %v, want %q", payload["iss"], want)
 	}
 }
 

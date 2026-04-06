@@ -44,6 +44,7 @@ type Tenant struct {
 	Name      string          `json:"name" db:"name" validate:"required,min=1,max=255"`
 	Slug      string          `json:"slug" db:"slug" validate:"required,min=1,max=100"`
 	Domain    string          `json:"domain,omitempty" db:"domain"`
+	IssuerURL string          `json:"issuer_url,omitempty" db:"issuer_url"`
 	ParentID  *uuid.UUID      `json:"parent_id,omitempty" db:"parent_id"`
 	Settings  json.RawMessage `json:"settings,omitempty" db:"settings"`
 	Branding  json.RawMessage `json:"branding,omitempty" db:"branding"`
