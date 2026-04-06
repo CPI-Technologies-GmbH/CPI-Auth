@@ -13,6 +13,8 @@ export interface AdminUser {
   avatar_url?: string
   role: 'super_admin' | 'admin' | 'viewer'
   tenant_id: string
+  /** Slug of the user's home tenant — used to build /t/{slug}/ URLs after login. */
+  tenant_slug?: string
   created_at: string
 }
 

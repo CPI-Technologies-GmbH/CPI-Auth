@@ -3,17 +3,20 @@ import { Avatar } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { LogOut, User, Bell, Search, Building2, Check, ArrowLeftRight, Languages } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { Tenant } from '@/types'
 import { useI18n, localeNames, type Locale } from '@/lib/i18n'
+import { parseTenantRoute, switchTenantPath } from '@/lib/tenant-router'
 
 function TenantSwitcher() {
   const { user, activeTenantId, setActiveTenant } = useAuthStore()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const { data: tenants } = useQuery({
     queryKey: ['tenants'],
@@ -27,8 +30,14 @@ function TenantSwitcher() {
   const isOverriding = activeTenantId !== user?.tenant_id
 
   const handleSelect = (tenantId: string) => {
+    const target = tenants.find((t: Tenant) => t.id === tenantId)
+    if (!target) return
     setActiveTenant(tenantId)
     queryClient.invalidateQueries()
+    // Switch the URL to the equivalent path under the new tenant so the
+    // browser bar reflects the active tenant. The auth store stays in
+    // sync via <TenantSync> on the new route.
+    navigate(switchTenantPath(location.pathname, target.slug))
   }
 
   return (
@@ -85,12 +94,20 @@ function LanguageSwitcher() {
 function Header() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchOpen, setSearchOpen] = useState(false)
 
   const handleLogout = async () => {
     await logout()
     navigate('/login')
   }
+
+  // Profile link goes to the active tenant's settings page when on a
+  // tenant route, and to /system/settings on platform routes.
+  const tenantCtx = parseTenantRoute(location.pathname)
+  const profilePath = tenantCtx.slug
+    ? `/t/${tenantCtx.slug}/settings`
+    : '/system/settings'
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
@@ -139,7 +156,7 @@ function Header() {
         >
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate('/settings')}>
+          <DropdownMenuItem onClick={() => navigate(profilePath)}>
             <User className="mr-2 h-4 w-4" />
             Profile
           </DropdownMenuItem>

@@ -98,7 +98,7 @@ class ApiClient {
     if (this.isTokenExpired() && this.getRefreshToken()) {
       const refreshed = await this.refreshAccessToken()
       if (!refreshed) {
-        window.location.href = '/login'
+        window.location.href = '/admin/login'
         throw new Error('Session expired')
       }
     }

@@ -5,10 +5,14 @@ metadata:
   name: {{ include "cpi-auth.fullname" . }}
   labels:
     {{- include "cpi-auth.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
+    # Enable nginx-ingress regex paths so the /t/{slug}/(login|register|...)
+    # routes below can capture the slug. The login UI's reroute hook strips
+    # the prefix internally so SvelteKit's filesystem router still matches.
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
@@ -40,6 +44,37 @@ spec:
                 port:
                   number: 5053
           {{- end }}
+          # Path-based tenant routing for the login UI: /t/{slug}/(login|...)
+          # The login UI's reroute hook in hooks.server.ts strips the
+          # /t/{slug}/ prefix internally so SvelteKit's router matches the
+          # same Svelte page that handles the legacy non-prefixed URLs.
+          - path: /t/[a-z0-9-]+/(login|register|consent|device|verify-email|forgot-password|reset-password|error|passwordless|mfa|webauthn|saml)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $loginSvc }}
+                port:
+                  number: 5053
+          # Admin UI routes — must come BEFORE the /admin → core rule below
+          # so they take precedence. The admin UI is mounted at /admin/ and
+          # uses path patterns that don't collide with the admin API:
+          #   /admin/login, /admin/system/*, /admin/t/*  → admin-ui (SPA)
+          #   /admin/assets/*                            → admin-ui (Vite assets)
+          #   /admin/                                    → admin-ui (root, redirects internally)
+          - path: /admin/(login|system|t|assets|index\.html)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $uiSvc }}
+                port:
+                  number: 5054
+          - path: /admin/$
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $uiSvc }}
+                port:
+                  number: 5054
           # API routes → Core backend
           {{- range list "/admin" "/oauth" "/.well-known" "/api" "/passwordless" "/mfa" "/webauthn" "/saml" }}
           - path: {{ . }}
@@ -50,14 +85,12 @@ spec:
                 port:
                   number: 5050
           {{- end }}
-          # Path-based tenant routing — /t/{slug}/* hits the core service.
+          # Path-based tenant routing for the core API: /t/{slug}/(oauth|...)
           # The PathBasedTenantResolver wrapper in core strips the prefix and
           # sets the tenant in context, so chi routes /t/lastsoftware/oauth/
-          # authorize through the existing /oauth/authorize handler. UI
-          # routes (login, register, etc.) under /t/{slug}/ are added once
-          # the login-ui supports the base path; until then they 404 here.
-          - path: /t/
-            pathType: Prefix
+          # authorize through the existing /oauth/authorize handler.
+          - path: /t/[a-z0-9-]+/(admin|oauth|\.well-known|api|health)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: {{ $coreSvc }}
@@ -77,6 +110,9 @@ spec:
                 name: {{ $coreSvc }}
                 port:
                   number: 5050
+          # Root: serve the admin UI shell. The SPA's BrowserRouter basename
+          # is /admin so it'll redirect / → /admin/{system,t}/. Once a real
+          # marketing landing page exists, this rule moves to that service.
           - path: /
             pathType: Prefix
             backend:

@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -172,9 +171,23 @@ func (h *Handler) AuthorizeGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if userID == uuid.Nil {
-		// No valid session — redirect to login UI with OAuth params preserved
-		loginURL := fmt.Sprintf("/login?%s", r.URL.RawQuery)
-		http.Redirect(w, r, loginURL, http.StatusFound)
+		// No valid session — redirect to the login UI with the OAuth params
+		// preserved. If we know the tenant slug (because the request came in
+		// via /t/{slug}/oauth/authorize OR we can resolve it from client_id),
+		// route through the tenant-prefixed login URL so the user's URL bar
+		// stays inside the tenant scope and the login page renders with the
+		// correct branding without needing client_id juggling.
+		loginPath := "/login"
+		if slug := middleware.GetTenantSlug(r.Context()); slug != "" {
+			loginPath = "/t/" + slug + "/login"
+		} else if req.ClientID != "" && h.oauthSvc != nil {
+			if appTenantID, err := h.oauthSvc.ResolveAppTenant(r.Context(), req.ClientID); err == nil && h.tenantRepo != nil {
+				if t, terr := h.tenantRepo.GetByID(r.Context(), appTenantID); terr == nil && t != nil {
+					loginPath = "/t/" + t.Slug + "/login"
+				}
+			}
+		}
+		http.Redirect(w, r, loginPath+"?"+r.URL.RawQuery, http.StatusFound)
 		return
 	}
 

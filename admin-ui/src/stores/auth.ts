@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AdminUser } from '@/types'
+import type { AdminUser, Tenant } from '@/types'
 import { api } from '@/lib/api'
 
 interface AuthState {
@@ -7,18 +7,28 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   activeTenantId: string | null
+  /** Cached list of tenants the current user can switch between (super-admin only). */
+  availableTenants: Tenant[]
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   loadUser: () => Promise<void>
   setUser: (user: AdminUser | null) => void
   setActiveTenant: (id: string | null) => void
+  /**
+   * Sync the active tenant from a URL slug. Looks the slug up in the
+   * tenant cache; if missing, fetches the tenant list. Used by the
+   * <TenantSync> wrapper around /t/:slug/ routes so the URL is the
+   * source of truth instead of localStorage.
+   */
+  setActiveTenantBySlug: (slug: string) => Promise<void>
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: !!localStorage.getItem('access_token'),
   isLoading: true,
   activeTenantId: localStorage.getItem('active_tenant_id'),
+  availableTenants: [],
 
   login: async (email: string, password: string) => {
     await api.login(email, password)
@@ -31,7 +41,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       await api.logout()
     } finally {
       localStorage.removeItem('active_tenant_id')
-      set({ user: null, isAuthenticated: false, isLoading: false, activeTenantId: null })
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        activeTenantId: null,
+        availableTenants: [],
+      })
     }
   },
 
@@ -63,5 +79,23 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.removeItem('active_tenant_id')
     }
     set({ activeTenantId: id })
+  },
+
+  setActiveTenantBySlug: async (slug: string) => {
+    let tenants = get().availableTenants
+    if (tenants.length === 0) {
+      try {
+        tenants = await api.getTenants()
+        set({ availableTenants: tenants })
+      } catch {
+        return
+      }
+    }
+    const match = tenants.find((t) => t.slug === slug)
+    if (!match) return
+    if (get().activeTenantId !== match.id) {
+      localStorage.setItem('active_tenant_id', match.id)
+      set({ activeTenantId: match.id })
+    }
   },
 }))

@@ -2,6 +2,8 @@ import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui'
 import { useI18n } from '@/lib/i18n'
+import { useAuthStore } from '@/stores/auth'
+import { parseTenantRoute, buildTenantPath, buildSystemPath } from '@/lib/tenant-router'
 import {
   LayoutDashboard,
   Users,
@@ -22,33 +24,60 @@ import {
   ChevronRight,
 } from 'lucide-react'
 
-const navItems = [
-  { i18nKey: 'nav.dashboard', path: '/', icon: LayoutDashboard },
-  { i18nKey: 'nav.users', path: '/users', icon: Users },
-  { i18nKey: 'nav.applications', path: '/applications', icon: AppWindow },
-  { i18nKey: 'nav.tenants', path: '/tenants', icon: Building2 },
-  { i18nKey: 'nav.organizations', path: '/organizations', icon: Building },
-  { i18nKey: 'nav.roles', path: '/roles', icon: Shield },
-  { i18nKey: 'nav.branding', path: '/branding', icon: Palette },
-  { i18nKey: 'nav.webhooks', path: '/webhooks', icon: Webhook },
-  { i18nKey: 'nav.actions', path: '/actions', icon: Zap },
-  { i18nKey: 'nav.email_templates', path: '/email-templates', icon: Mail },
-  { i18nKey: 'nav.page_templates', path: '/page-templates', icon: FileCode },
-  { i18nKey: 'nav.api_keys', path: '/api-keys', icon: Key },
-  { i18nKey: 'nav.custom_fields', path: '/custom-fields', icon: FormInput },
-  { i18nKey: 'nav.logs', path: '/logs', icon: ScrollText },
-  { i18nKey: 'nav.settings', path: '/settings', icon: Settings },
+// Tenant-scoped navigation: every link is built relative to the active
+// tenant slug parsed from the URL.
+const tenantNavItems = [
+  { i18nKey: 'nav.dashboard', sub: '/', icon: LayoutDashboard },
+  { i18nKey: 'nav.users', sub: '/users', icon: Users },
+  { i18nKey: 'nav.applications', sub: '/applications', icon: AppWindow },
+  { i18nKey: 'nav.organizations', sub: '/organizations', icon: Building },
+  { i18nKey: 'nav.roles', sub: '/roles', icon: Shield },
+  { i18nKey: 'nav.branding', sub: '/branding', icon: Palette },
+  { i18nKey: 'nav.webhooks', sub: '/webhooks', icon: Webhook },
+  { i18nKey: 'nav.actions', sub: '/actions', icon: Zap },
+  { i18nKey: 'nav.email_templates', sub: '/email-templates', icon: Mail },
+  { i18nKey: 'nav.page_templates', sub: '/page-templates', icon: FileCode },
+  { i18nKey: 'nav.api_keys', sub: '/api-keys', icon: Key },
+  { i18nKey: 'nav.custom_fields', sub: '/custom-fields', icon: FormInput },
+  { i18nKey: 'nav.logs', sub: '/logs', icon: ScrollText },
+  { i18nKey: 'nav.settings', sub: '/settings', icon: Settings },
+]
+
+// System (platform) navigation: super-admin only.
+const systemNavItems = [
+  { i18nKey: 'nav.system_dashboard', sub: '', icon: LayoutDashboard },
+  { i18nKey: 'nav.tenants', sub: '/tenants', icon: Building2 },
+  { i18nKey: 'nav.system_logs', sub: '/logs', icon: ScrollText },
+  { i18nKey: 'nav.system_settings', sub: '/settings', icon: Settings },
 ]
 
 function Sidebar() {
   const location = useLocation()
   const { sidebarCollapsed, setSidebarCollapsed } = useUIStore()
   const { t } = useI18n()
+  const { user } = useAuthStore()
+
+  // Resolve the current scope from the URL: tenant page (slug present),
+  // system page, or login. Tenant slug is the source of truth for nav links.
+  const tenantCtx = parseTenantRoute(location.pathname)
+  const isSystemRoute = location.pathname.startsWith('/system')
+  const activeSlug = tenantCtx.slug || user?.tenant_slug || ''
+
+  const navItems = isSystemRoute
+    ? systemNavItems.map((item) => ({ ...item, path: buildSystemPath(item.sub) }))
+    : tenantNavItems.map((item) => ({ ...item, path: buildTenantPath(activeSlug, item.sub) }))
 
   const isActive = (path: string) => {
-    if (path === '/') return location.pathname === '/'
+    if (path === buildTenantPath(activeSlug)) {
+      return location.pathname === path
+    }
+    if (path === buildSystemPath()) {
+      return location.pathname === path
+    }
     return location.pathname.startsWith(path)
   }
+
+  const homePath = isSystemRoute ? buildSystemPath() : buildTenantPath(activeSlug)
 
   return (
     <aside
@@ -59,7 +88,7 @@ function Sidebar() {
     >
       <div className="flex h-16 items-center border-b px-4">
         {!sidebarCollapsed && (
-          <Link to="/" className="flex items-center gap-2">
+          <Link to={homePath} className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Shield className="h-4 w-4 text-white" />
             </div>
@@ -67,7 +96,7 @@ function Sidebar() {
           </Link>
         )}
         {sidebarCollapsed && (
-          <Link to="/" className="flex items-center justify-center w-full">
+          <Link to={homePath} className="flex items-center justify-center w-full">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Shield className="h-4 w-4 text-white" />
             </div>

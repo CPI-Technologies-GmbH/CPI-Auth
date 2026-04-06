@@ -268,12 +268,12 @@ func main() {
 	r.Get("/api/v1/branding", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		clientID := r.URL.Query().Get("client_id")
+		tenantSlug := r.Header.Get("X-Tenant-Slug")
 
 		// Tenant resolution priority for branding:
 		//   1. client_id (the application unambiguously identifies its tenant)
-		//   2. host-derived tenant (default tenant for the domain)
-		// Without (1) winning over (2), a request to auth.cpi.dev for an app
-		// in a different tenant would return the default tenant's branding.
+		//   2. X-Tenant-Slug header (set by the login UI when accessed via /t/{slug}/)
+		//   3. host-derived tenant (default tenant for the domain)
 		tenantID := mw.GetTenantID(ctx)
 		var tenant *models.Tenant
 		var app *models.Application
@@ -281,6 +281,10 @@ func main() {
 			if a, err := appRepo.GetByClientID(ctx, clientID); err == nil && a != nil {
 				app = a
 				tenantID = a.TenantID
+			}
+		} else if tenantSlug != "" {
+			if t, err := tenantRepo.GetBySlug(ctx, tenantSlug); err == nil && t != nil {
+				tenantID = t.ID
 			}
 		}
 
@@ -375,14 +379,21 @@ func main() {
 						}
 					}
 				}
+				// Look up the user's tenant slug so the admin UI can build
+				// /admin/t/{slug}/ URLs after login without an extra round-trip.
+				tenantSlug := ""
+				if t, terr := tenantRepo.GetByID(r.Context(), user.TenantID); terr == nil && t != nil {
+					tenantSlug = t.Slug
+				}
 				mw.WriteJSON(w, http.StatusOK, map[string]interface{}{
-					"id":         user.ID.String(),
-					"email":      user.Email,
-					"name":       user.Name,
-					"avatar_url": user.AvatarURL,
-					"role":       role,
-					"tenant_id":  user.TenantID.String(),
-					"created_at": user.CreatedAt,
+					"id":          user.ID.String(),
+					"email":       user.Email,
+					"name":        user.Name,
+					"avatar_url":  user.AvatarURL,
+					"role":        role,
+					"tenant_id":   user.TenantID.String(),
+					"tenant_slug": tenantSlug,
+					"created_at":  user.CreatedAt,
 				})
 			})
 		})
