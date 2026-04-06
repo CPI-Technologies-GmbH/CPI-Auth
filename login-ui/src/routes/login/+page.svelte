@@ -23,6 +23,12 @@
 
 	let oauth = $derived(extractOAuthParams(new URL($page.url)));
 	let loginHint = $derived($page.url.searchParams.get('login_hint') || '');
+	// Same-origin return target (e.g. used by /device → /login → /device?code=…).
+	// Must start with a single "/" to prevent open-redirect to external hosts.
+	let returnTo = $derived.by(() => {
+		const raw = $page.url.searchParams.get('return_to') || '';
+		return raw.startsWith('/') && !raw.startsWith('//') ? raw : '';
+	});
 	let providers = $derived($branding?.social_providers || []);
 	let passkeysEnabled = $derived($branding?.passkeys_enabled ?? false);
 	let magicLinkEnabled = $derived($branding?.magic_link_enabled ?? false);
@@ -94,6 +100,9 @@
 				redirectTo(result.redirect_url);
 			} else if (oauth?.redirect_uri) {
 				redirectTo(oauth.redirect_uri);
+			} else if (returnTo) {
+				// Browser flow that started elsewhere on this origin (e.g. /device).
+				redirectTo(returnTo);
 			} else {
 				// No OAuth flow — show success state
 				error = '';
