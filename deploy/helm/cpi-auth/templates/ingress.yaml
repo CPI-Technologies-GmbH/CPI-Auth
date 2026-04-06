@@ -96,6 +96,17 @@ spec:
                 name: {{ $coreSvc }}
                 port:
                   number: 5050
+          # Fallback for any other /t/{...}/... path (invalid slug, or a
+          # path neither the login-ui nor the core regex matched). Sending
+          # it to core lets the PathBasedTenantResolver wrapper return a
+          # proper 404 instead of falling through to the admin-ui SPA shell.
+          - path: /t/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $coreSvc }}
+                port:
+                  number: 5050
           - path: /health
             pathType: Exact
             backend:
