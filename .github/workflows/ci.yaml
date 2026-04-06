@@ -42,18 +42,45 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23"
-      - run: go build ./...
+      - run: go build -o /tmp/cpi-auth ./
       - name: Run unit tests
         run: go test $(go list ./... | grep -v /tests/e2e) -count=1 -timeout 120s
-      - name: Run E2E tests
-        run: go test ./tests/e2e/ -count=1 -timeout 120s
+      - name: Start API server in background for E2E
+        run: |
+          /tmp/cpi-auth > /tmp/cpi-auth.log 2>&1 &
+          echo $! > /tmp/cpi-auth.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:5050/health >/dev/null 2>&1; then
+              echo "API ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start within 30s — server log follows"
+          tail -200 /tmp/cpi-auth.log || true
+          exit 1
         env:
           AF_DB_HOST: localhost
           AF_DB_PORT: "5432"
+          AF_DB_USER: authforge
+          AF_DB_PASSWORD: authforge_secret
+          AF_DB_DATABASE: authforge
+          AF_DB_SSL_MODE: disable
           AF_REDIS_HOST: localhost
           AF_NATS_URL: "nats://localhost:4222"
+          AF_SERVER_HOST: "0.0.0.0"
+          AF_SERVER_PORT: "5050"
+      - name: Run E2E tests
+        run: go test ./tests/e2e/ -count=1 -timeout 120s
+        env:
           E2E_API_URL: "http://localhost:5050"
           E2E_DATABASE_URL: "postgres://authforge:authforge_secret@localhost:5432/authforge?sslmode=disable"
+      - name: Dump server log on failure
+        if: failure()
+        run: tail -200 /tmp/cpi-auth.log || true
+      - name: Stop API server
+        if: always()
+        run: kill "$(cat /tmp/cpi-auth.pid)" 2>/dev/null || true
 
   admin-ui-test:
     name: Admin UI Tests
