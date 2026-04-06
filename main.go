@@ -269,18 +269,18 @@ func main() {
 		ctx := r.Context()
 		clientID := r.URL.Query().Get("client_id")
 
-		// Resolve tenant: from context (domain), or from client_id's app
+		// Tenant resolution priority for branding:
+		//   1. client_id (the application unambiguously identifies its tenant)
+		//   2. host-derived tenant (default tenant for the domain)
+		// Without (1) winning over (2), a request to auth.cpi.dev for an app
+		// in a different tenant would return the default tenant's branding.
 		tenantID := mw.GetTenantID(ctx)
 		var tenant *models.Tenant
-
-		// If client_id provided, find the app and use its tenant
 		var app *models.Application
 		if clientID != "" {
 			if a, err := appRepo.GetByClientID(ctx, clientID); err == nil && a != nil {
 				app = a
-				if tenantID == uuid.Nil {
-					tenantID = a.TenantID
-				}
+				tenantID = a.TenantID
 			}
 		}
 
