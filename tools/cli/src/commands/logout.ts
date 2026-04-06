@@ -12,19 +12,22 @@ export function logoutCommand() {
         const { loadGlobalConfig } = require('../config.js')
         const config = loadGlobalConfig()
         for (const ctx of Object.values(config.contexts)) {
-          deleteToken((ctx as any).server)
+          const c = ctx as any
+          deleteToken(c.server, c['tenant-id'])
         }
         success('Logged out from all servers')
         return
       }
 
-      const server = opts.server || getCurrentContext()?.server
+      const ctx = getCurrentContext()
+      const server = opts.server || ctx?.server
+      const tenantId = opts.server ? undefined : ctx?.tenantId
       if (!server) {
         error('No server specified. Use --server or set a context first.')
         return
       }
 
-      deleteToken(server)
+      deleteToken(server, tenantId)
       success(`Logged out from ${server}`)
     })
 }

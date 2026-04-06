@@ -44,7 +44,7 @@ export function configCommand() {
       console.log(`  ${chalk.dim('CURRENT')}   ${chalk.dim('NAME'.padEnd(16))} ${chalk.dim('SERVER')}`)
       for (const [name, ctx] of contexts) {
         const current = name === config['current-context'] ? chalk.green('*') : ' '
-        const token = loadToken(ctx.server)
+        const token = loadToken(ctx.server, ctx['tenant-id'])
         const auth = token ? chalk.green('●') : chalk.dim('○')
         console.log(`  ${current}  ${auth}      ${name.padEnd(16)} ${chalk.dim(ctx.server)}`)
       }

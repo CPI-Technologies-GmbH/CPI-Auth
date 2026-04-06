@@ -22,7 +22,7 @@ export function statusCommand() {
       console.log(`  ${chalk.dim('Server:')}      ${ctx.server}`)
       if (ctx.tenantId) console.log(`  ${chalk.dim('Tenant:')}      ${ctx.tenantId}`)
 
-      const token = loadToken(ctx.server)
+      const token = loadToken(ctx.server, ctx.tenantId)
       if (!token) {
         console.log(`  ${chalk.dim('Token:')}       ${chalk.red('not logged in')}`)
         console.log()

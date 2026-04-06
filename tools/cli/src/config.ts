@@ -22,6 +22,7 @@ export interface StoredToken {
   refresh_token?: string
   expires_at: number
   server: string
+  tenant_id?: string
   email?: string
   name?: string
 }
@@ -44,12 +45,13 @@ function getConfigPath(): string {
   return join(getConfigDir(), 'config.yaml')
 }
 
-function serverHash(server: string): string {
-  return createHash('sha256').update(server.replace(/\/$/, '')).digest('hex').substring(0, 16)
+function serverHash(server: string, tenantId?: string): string {
+  const key = server.replace(/\/$/, '') + (tenantId ? `|${tenantId}` : '')
+  return createHash('sha256').update(key).digest('hex').substring(0, 16)
 }
 
-function getTokenPath(server: string): string {
-  return join(getConfigDir(), 'tokens', `${serverHash(server)}.json`)
+function getTokenPath(server: string, tenantId?: string): string {
+  return join(getConfigDir(), 'tokens', `${serverHash(server, tenantId)}.json`)
 }
 
 // ─── Global Config ────────────────────────────────────────────
@@ -110,8 +112,8 @@ export function removeContext(name: string): boolean {
 
 // ─── Token Storage ────────────────────────────────────────────
 
-export function loadToken(server: string): StoredToken | null {
-  const path = getTokenPath(server)
+export function loadToken(server: string, tenantId?: string): StoredToken | null {
+  const path = getTokenPath(server, tenantId)
   if (!existsSync(path)) return null
   try {
     const data: StoredToken = JSON.parse(readFileSync(path, 'utf8'))
@@ -124,13 +126,13 @@ export function loadToken(server: string): StoredToken | null {
   }
 }
 
-export function saveTokenToFile(server: string, data: StoredToken): void {
-  const path = getTokenPath(server)
+export function saveTokenToFile(server: string, data: StoredToken, tenantId?: string): void {
+  const path = getTokenPath(server, tenantId ?? data.tenant_id)
   writeFileSync(path, JSON.stringify(data, null, 2), { mode: 0o600 })
 }
 
-export function deleteToken(server: string): void {
-  const path = getTokenPath(server)
+export function deleteToken(server: string, tenantId?: string): void {
+  const path = getTokenPath(server, tenantId)
   if (existsSync(path)) {
     const { unlinkSync } = require('node:fs')
     unlinkSync(path)
@@ -164,8 +166,8 @@ export function getAuthenticatedClient(opts?: { server?: string; token?: string 
     return client
   }
 
-  // Load saved token for this server
-  const stored = loadToken(server)
+  // Load saved token for this server + tenant combination
+  const stored = loadToken(server, tenantId || undefined)
   if (stored) {
     client.setToken(stored.access_token)
   }
@@ -197,10 +199,11 @@ export function migrateOldToken(): void {
       access_token: token,
       expires_at: payload.exp || 0,
       server,
+      tenant_id: payload.tenant_id,
       email: payload.email,
       name: payload.name,
     }
-    saveTokenToFile(server, stored)
+    saveTokenToFile(server, stored, payload.tenant_id)
 
     // Auto-create context if none exists
     const config = loadGlobalConfig()

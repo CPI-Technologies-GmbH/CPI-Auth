@@ -14,11 +14,15 @@ export function loginCommand() {
     .option('-p, --password <password>', 'Password (CI/CD fallback, skips device flow)')
     .option('--force', 'Force re-authentication even if already logged in')
     .action(async (opts) => {
-      // Resolve server
+      // Resolve server and tenantId from current context (unless overridden)
       let server = opts.server || process.env.CPI_AUTH_SERVER || ''
-      if (!server) {
+      let tenantId: string | undefined = process.env.CPI_AUTH_TENANT_ID || undefined
+      if (!opts.server) {
         const ctx = getCurrentContext()
-        if (ctx) server = ctx.server
+        if (ctx) {
+          if (!server) server = ctx.server
+          if (!tenantId) tenantId = ctx.tenantId
+        }
       }
       if (!server) {
         const rl = createInterface({ input: process.stdin, output: process.stdout })
@@ -29,17 +33,17 @@ export function loginCommand() {
 
       // CI/CD fallback: email + password (no browser)
       if (opts.email && opts.password) {
-        await loginWithPassword(server, opts.email, opts.password)
+        await loginWithPassword(server, opts.email, opts.password, tenantId)
         return
       }
 
       // Try device authorization flow
-      await loginWithDeviceAuth(server)
+      await loginWithDeviceAuth(server, tenantId)
     })
 }
 
-async function loginWithDeviceAuth(server: string) {
-  const client = new APIClient({ server })
+async function loginWithDeviceAuth(server: string, tenantId?: string) {
+  const client = new APIClient({ server, tenantId })
 
   // 1. Request device code
   let deviceResponse: any
@@ -62,7 +66,7 @@ async function loginWithDeviceAuth(server: string) {
     const email = await rl.question('  Email: ')
     const password = await rl.question('  Password: ')
     rl.close()
-    await loginWithPassword(server, email, password)
+    await loginWithPassword(server, email, password, tenantId)
     return
   }
 
@@ -129,18 +133,21 @@ async function loginWithDeviceAuth(server: string) {
           refresh_token: data.refresh_token,
           expires_at: expiresAt,
           server,
+          tenant_id: tenantId,
           email,
           name,
         }
-        saveTokenToFile(server, stored)
+        saveTokenToFile(server, stored, tenantId)
 
-        // Auto-create context
+        // Auto-create context (only if no context for this server+tenant exists)
         const { loadGlobalConfig } = await import('../config.js')
         const config = loadGlobalConfig()
-        const hasContext = Object.values(config.contexts).some(c => c.server === server)
+        const hasContext = Object.values(config.contexts).some(
+          c => c.server === server && (c['tenant-id'] || undefined) === (tenantId || undefined)
+        )
         if (!hasContext) {
           const contextName = server.includes('localhost') ? 'local' : new URL(server).hostname.split('.')[0]
-          addContext(contextName, server)
+          addContext(contextName, server, tenantId)
           info(`Context "${contextName}" created`)
         }
 
@@ -171,9 +178,9 @@ async function loginWithDeviceAuth(server: string) {
   }
 }
 
-async function loginWithPassword(server: string, email: string, password: string) {
+async function loginWithPassword(server: string, email: string, password: string, tenantId?: string) {
   try {
-    const client = new APIClient({ server })
+    const client = new APIClient({ server, tenantId })
     const tokens = await client.login(email, password)
 
     let expiresAt = Date.now() / 1000 + (tokens.expires_in || 3600)
@@ -187,17 +194,20 @@ async function loginWithPassword(server: string, email: string, password: string
       refresh_token: tokens.refresh_token,
       expires_at: expiresAt,
       server,
+      tenant_id: tenantId,
       email,
     }
-    saveTokenToFile(server, stored)
+    saveTokenToFile(server, stored, tenantId)
 
-    // Auto-create context
+    // Auto-create context (only if no context for this server+tenant exists)
     const { loadGlobalConfig } = await import('../config.js')
     const config = loadGlobalConfig()
-    const hasContext = Object.values(config.contexts).some(c => c.server === server)
+    const hasContext = Object.values(config.contexts).some(
+      c => c.server === server && (c['tenant-id'] || undefined) === (tenantId || undefined)
+    )
     if (!hasContext) {
       const contextName = server.includes('localhost') ? 'local' : new URL(server).hostname.split('.')[0]
-      addContext(contextName, server)
+      addContext(contextName, server, tenantId)
     }
 
     success(`Logged in as ${email} on ${server}`)
