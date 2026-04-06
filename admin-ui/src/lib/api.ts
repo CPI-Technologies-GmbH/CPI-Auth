@@ -142,7 +142,7 @@ class ApiClient {
         return retryResponse.json()
       }
       this.clearTokens()
-      window.location.href = '/login'
+      window.location.href = '/admin/login'
       throw new Error('Session expired')
     }
 
