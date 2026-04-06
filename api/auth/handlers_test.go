@@ -119,7 +119,7 @@ func (m *mockUserRepoAuth) Create(_ context.Context, user *models.User) error {
 }
 func (m *mockUserRepoAuth) GetByID(_ context.Context, tenantID, id uuid.UUID) (*models.User, error) {
 	user, ok := m.users[id]
-	if !ok {
+	if !ok || user.TenantID != tenantID {
 		return nil, models.ErrNotFound
 	}
 	return user, nil
@@ -323,7 +323,7 @@ func TestAuthorizeHandler_POST_NoUserID(t *testing.T) {
 }
 
 func TestAuthorizeHandler_POST_WithUser(t *testing.T) {
-	h, appRepo, _, _ := testAuthHandler()
+	h, appRepo, userRepo, _ := testAuthHandler()
 
 	tenantID := uuid.New()
 	app := &models.Application{
@@ -336,6 +336,9 @@ func TestAuthorizeHandler_POST_WithUser(t *testing.T) {
 	}
 	appRepo.apps[app.ID] = app
 	appRepo.byClientID[app.ClientID] = app
+
+	user := &models.User{ID: uuid.New(), TenantID: tenantID, Email: "u@example.com"}
+	userRepo.users[user.ID] = user
 
 	body := map[string]interface{}{
 		"client_id":             app.ClientID,
@@ -350,7 +353,7 @@ func TestAuthorizeHandler_POST_WithUser(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/oauth/authorize", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req = withUserContext(req, uuid.New())
+	req = withUserContext(req, user.ID)
 	w := httptest.NewRecorder()
 
 	h.Authorize(w, req)

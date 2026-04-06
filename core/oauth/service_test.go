@@ -148,7 +148,7 @@ func (m *mockUserRepoOAuth) Create(_ context.Context, user *models.User) error {
 
 func (m *mockUserRepoOAuth) GetByID(_ context.Context, tenantID, id uuid.UUID) (*models.User, error) {
 	user, ok := m.users[id]
-	if !ok {
+	if !ok || user.TenantID != tenantID {
 		return nil, models.ErrNotFound
 	}
 	return user, nil
@@ -332,9 +332,9 @@ func TestNewService(t *testing.T) {
 }
 
 func TestAuthorize_Success(t *testing.T) {
-	svc, appRepo, grantRepo, _, _ := testOAuthService()
+	svc, appRepo, grantRepo, userRepo, _ := testOAuthService()
 	tenantID := uuid.New()
-	userID := uuid.New()
+	userID := createTestUser(userRepo, tenantID).ID
 	app := createTestApp(appRepo, tenantID, models.AppTypeSPA)
 
 	verifier := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
@@ -392,8 +392,9 @@ func TestAuthorize_UnknownClient(t *testing.T) {
 }
 
 func TestAuthorize_InvalidResponseType(t *testing.T) {
-	svc, appRepo, _, _, _ := testOAuthService()
+	svc, appRepo, _, userRepo, _ := testOAuthService()
 	tenantID := uuid.New()
+	userID := createTestUser(userRepo, tenantID).ID
 	app := createTestApp(appRepo, tenantID, models.AppTypeSPA)
 
 	req := AuthorizeRequest{
@@ -403,7 +404,7 @@ func TestAuthorize_InvalidResponseType(t *testing.T) {
 		CodeChallenge: "test-challenge",
 	}
 
-	_, err := svc.Authorize(context.Background(), uuid.New(), req)
+	_, err := svc.Authorize(context.Background(), userID, req)
 	if err == nil {
 		t.Fatal("Authorize should fail for response_type=token")
 	}
@@ -413,8 +414,9 @@ func TestAuthorize_InvalidResponseType(t *testing.T) {
 }
 
 func TestAuthorize_InvalidRedirectURI(t *testing.T) {
-	svc, appRepo, _, _, _ := testOAuthService()
+	svc, appRepo, _, userRepo, _ := testOAuthService()
 	tenantID := uuid.New()
+	userID := createTestUser(userRepo, tenantID).ID
 	app := createTestApp(appRepo, tenantID, models.AppTypeSPA)
 
 	req := AuthorizeRequest{
@@ -424,15 +426,16 @@ func TestAuthorize_InvalidRedirectURI(t *testing.T) {
 		CodeChallenge: "test-challenge",
 	}
 
-	_, err := svc.Authorize(context.Background(), uuid.New(), req)
+	_, err := svc.Authorize(context.Background(), userID, req)
 	if err == nil {
 		t.Fatal("Authorize should fail for invalid redirect_uri")
 	}
 }
 
 func TestAuthorize_MissingPKCE(t *testing.T) {
-	svc, appRepo, _, _, _ := testOAuthService()
+	svc, appRepo, _, userRepo, _ := testOAuthService()
 	tenantID := uuid.New()
+	userID := createTestUser(userRepo, tenantID).ID
 	app := createTestApp(appRepo, tenantID, models.AppTypeSPA)
 
 	req := AuthorizeRequest{
@@ -443,15 +446,16 @@ func TestAuthorize_MissingPKCE(t *testing.T) {
 		// Missing CodeChallenge
 	}
 
-	_, err := svc.Authorize(context.Background(), uuid.New(), req)
+	_, err := svc.Authorize(context.Background(), userID, req)
 	if err == nil {
 		t.Fatal("Authorize should fail without PKCE code_challenge")
 	}
 }
 
 func TestAuthorize_UnsupportedCodeChallengeMethod(t *testing.T) {
-	svc, appRepo, _, _, _ := testOAuthService()
+	svc, appRepo, _, userRepo, _ := testOAuthService()
 	tenantID := uuid.New()
+	userID := createTestUser(userRepo, tenantID).ID
 	app := createTestApp(appRepo, tenantID, models.AppTypeSPA)
 
 	req := AuthorizeRequest{
@@ -462,15 +466,16 @@ func TestAuthorize_UnsupportedCodeChallengeMethod(t *testing.T) {
 		CodeChallengeMethod: "plain", // Only S256 is supported
 	}
 
-	_, err := svc.Authorize(context.Background(), uuid.New(), req)
+	_, err := svc.Authorize(context.Background(), userID, req)
 	if err == nil {
 		t.Fatal("Authorize should fail for code_challenge_method=plain")
 	}
 }
 
 func TestAuthorize_InvalidScope(t *testing.T) {
-	svc, appRepo, _, _, _ := testOAuthService()
+	svc, appRepo, _, userRepo, _ := testOAuthService()
 	tenantID := uuid.New()
+	userID := createTestUser(userRepo, tenantID).ID
 	app := createTestApp(appRepo, tenantID, models.AppTypeSPA)
 
 	req := AuthorizeRequest{
@@ -482,7 +487,7 @@ func TestAuthorize_InvalidScope(t *testing.T) {
 		CodeChallengeMethod: "S256",
 	}
 
-	_, err := svc.Authorize(context.Background(), uuid.New(), req)
+	_, err := svc.Authorize(context.Background(), userID, req)
 	if err == nil {
 		t.Fatal("Authorize should fail for invalid scope")
 	}
@@ -492,8 +497,9 @@ func TestAuthorize_InvalidScope(t *testing.T) {
 }
 
 func TestAuthorize_CustomScopeAllowed(t *testing.T) {
-	svc, appRepo, _, _, _ := testOAuthService()
+	svc, appRepo, _, userRepo, _ := testOAuthService()
 	tenantID := uuid.New()
+	userID := createTestUser(userRepo, tenantID).ID
 	app := createTestApp(appRepo, tenantID, models.AppTypeSPA)
 
 	verifier := "test-verifier-12345678901234567890"
@@ -508,12 +514,44 @@ func TestAuthorize_CustomScopeAllowed(t *testing.T) {
 		CodeChallengeMethod: "S256",
 	}
 
-	resp, err := svc.Authorize(context.Background(), uuid.New(), req)
+	resp, err := svc.Authorize(context.Background(), userID, req)
 	if err != nil {
 		t.Fatalf("Custom scopes with ':' should be allowed, got error: %v", err)
 	}
 	if resp.Code == "" {
 		t.Error("Code should not be empty")
+	}
+}
+
+func TestAuthorize_RejectsCrossTenantUser(t *testing.T) {
+	// Regression for the bug where a user logged into tenant A could request
+	// an auth code for an app in tenant B. The grant would be created with
+	// the app's tenant, the token-exchange user lookup would fail (different
+	// tenant), and the request would surface as a generic 500 internal_error.
+	svc, appRepo, _, userRepo, _ := testOAuthService()
+	appTenantID := uuid.New()
+	userTenantID := uuid.New() // user lives in a *different* tenant
+	userID := createTestUser(userRepo, userTenantID).ID
+	app := createTestApp(appRepo, appTenantID, models.AppTypeSPA)
+
+	verifier := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	challenge := generateCodeChallenge(verifier)
+
+	req := AuthorizeRequest{
+		ClientID:            app.ClientID,
+		RedirectURI:         "https://app.example.com/callback",
+		ResponseType:        "code",
+		Scope:               "openid",
+		CodeChallenge:       challenge,
+		CodeChallengeMethod: "S256",
+	}
+
+	_, err := svc.Authorize(context.Background(), userID, req)
+	if err == nil {
+		t.Fatal("Authorize should reject a user from a different tenant")
+	}
+	if !models.IsAppError(err, models.ErrForbidden) {
+		t.Errorf("expected ErrForbidden, got %v", err)
 	}
 }
 

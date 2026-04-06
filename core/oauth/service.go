@@ -96,6 +96,16 @@ func (s *Service) Authorize(ctx context.Context, userID uuid.UUID, req Authorize
 		return nil, err
 	}
 
+	// The authenticated user must belong to the same tenant as the application.
+	// Otherwise the token exchange would fail later when looking up the user
+	// scoped to the app's tenant — fail fast here with a clear message instead.
+	user, err := s.users.GetByID(ctx, app.TenantID, userID)
+	if err != nil || user == nil {
+		return nil, models.ErrForbidden.WithMessage(
+			"The authenticated user does not belong to this application's tenant. " +
+				"Sign in with an account that belongs to the application's tenant.")
+	}
+
 	// Validate response_type
 	if req.ResponseType != "code" {
 		return nil, models.ErrBadRequest.WithMessage("Only response_type=code is supported (OAuth 2.1).")
@@ -221,9 +231,21 @@ func (s *Service) exchangeAuthorizationCode(ctx context.Context, req TokenReques
 		}
 	}
 
-	// Get user for claims
+	// Get user for claims. A "not found" here means the grant references a user
+	// that does not exist in the application's tenant — surface that as
+	// invalid_grant rather than swallowing it as a generic 500.
 	user, err := s.users.GetByID(ctx, app.TenantID, grant.UserID)
 	if err != nil {
+		if models.IsAppError(err, models.ErrNotFound) {
+			return nil, models.ErrInvalidGrant.WithMessage(
+				"The authorized user no longer exists in this application's tenant.")
+		}
+		s.logger.Error("oauth token exchange: user lookup failed",
+			zap.Error(err),
+			zap.String("client_id", req.ClientID),
+			zap.String("user_id", grant.UserID.String()),
+			zap.String("app_tenant_id", app.TenantID.String()),
+		)
 		return nil, models.ErrInternal.Wrap(err)
 	}
 
@@ -274,6 +296,15 @@ func (s *Service) exchangeRefreshToken(ctx context.Context, req TokenRequest) (*
 	// Look up user to issue a new access token
 	user, err := s.users.GetByID(ctx, app.TenantID, pair.UserID)
 	if err != nil {
+		if models.IsAppError(err, models.ErrNotFound) {
+			return nil, models.ErrInvalidGrant.WithMessage(
+				"The user associated with this refresh token no longer exists in the application's tenant.")
+		}
+		s.logger.Error("oauth refresh: user lookup failed",
+			zap.Error(err),
+			zap.String("client_id", req.ClientID),
+			zap.String("user_id", pair.UserID.String()),
+		)
 		return nil, models.ErrInternal.Wrap(err)
 	}
 

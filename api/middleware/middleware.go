@@ -67,11 +67,35 @@ func WriteJSON(w http.ResponseWriter, status int, data interface{}) {
 	json.NewEncoder(w).Encode(data)
 }
 
-// WriteError writes an error response.
+// errorLogger is the package-level logger used to surface 5xx errors that
+// would otherwise vanish into a generic JSON response. Set via SetErrorLogger
+// during server bootstrap.
+var errorLogger *zap.Logger
+
+// SetErrorLogger registers the logger that WriteError uses to log 5xx errors.
+func SetErrorLogger(l *zap.Logger) {
+	errorLogger = l
+}
+
+// WriteError writes an error response. 5xx errors (including any wrapped
+// inner cause) are also logged so they don't disappear silently.
 func WriteError(w http.ResponseWriter, err error) {
 	if appErr := models.GetAppError(err); appErr != nil {
+		if appErr.HTTPStatus >= 500 && errorLogger != nil {
+			fields := []zap.Field{
+				zap.String("code", appErr.Code),
+				zap.String("message", appErr.Message),
+			}
+			if appErr.Inner != nil {
+				fields = append(fields, zap.Error(appErr.Inner))
+			}
+			errorLogger.Error("server error response", fields...)
+		}
 		WriteJSON(w, appErr.HTTPStatus, appErr)
 		return
+	}
+	if errorLogger != nil {
+		errorLogger.Error("unhandled error response", zap.Error(err))
 	}
 	WriteJSON(w, http.StatusInternalServerError, models.ErrInternal)
 }

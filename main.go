@@ -59,6 +59,7 @@ func main() {
 		logger, _ = zap.NewProduction()
 	}
 	defer logger.Sync()
+	mw.SetErrorLogger(logger)
 
 	logger.Info("starting CPI Auth",
 		zap.String("host", cfg.Server.Host),
