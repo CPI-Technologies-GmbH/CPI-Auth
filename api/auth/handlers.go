@@ -544,13 +544,18 @@ type loginRequest struct {
 }
 
 type registerRequest struct {
-	Email        string                 `json:"email"`
-	Password     string                 `json:"password"`
-	Name         string                 `json:"name"`
-	Locale       string                 `json:"locale"`
-	CustomFields map[string]interface{} `json:"custom_fields"`
-	ClientID     string                 `json:"client_id"`
-	RedirectURI  string                 `json:"redirect_uri"`
+	Email               string                 `json:"email"`
+	Password            string                 `json:"password"`
+	Name                string                 `json:"name"`
+	Locale              string                 `json:"locale"`
+	CustomFields        map[string]interface{} `json:"custom_fields"`
+	ClientID            string                 `json:"client_id"`
+	RedirectURI         string                 `json:"redirect_uri"`
+	Scope               string                 `json:"scope"`
+	State               string                 `json:"state"`
+	CodeChallenge       string                 `json:"code_challenge"`
+	CodeChallengeMethod string                 `json:"code_challenge_method"`
+	ResponseType        string                 `json:"response_type"`
 }
 
 type authResponse struct {
@@ -830,8 +835,11 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		Data:     map[string]interface{}{"email": user.Email},
 	})
 
-	// Create session
-	_, err = h.sessionSvc.Create(ctx, sessions.CreateSessionInput{
+	// Create session AND set the cookie so subsequent requests on the same
+	// browser see the user as authenticated. Without setSessionCookie the
+	// freshly registered user lands at /login?registered=true and has to
+	// type their credentials again to actually start a session.
+	sess, err := h.sessionSvc.Create(ctx, sessions.CreateSessionInput{
 		UserID:    user.ID,
 		TenantID:  tenantID,
 		IP:        extractIP(r.RemoteAddr),
@@ -839,6 +847,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.logger.Error("failed to create session", zap.Error(err))
+	}
+	if sess != nil {
+		setSessionCookie(w, r, sess.ID.String(), false, h.cfg)
 	}
 
 	// Issue tokens
@@ -863,6 +874,37 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 			IP:       extractIP(r.RemoteAddr),
 			Data:     map[string]interface{}{"email": user.Email, "user_id": user.ID.String()},
 		})
+	}
+
+	// If the registration is part of an OAuth code flow, run the authorize
+	// step right here so the UI can redirect to the relying party with a
+	// fresh code instead of bouncing back through /login.
+	if req.ClientID != "" && req.RedirectURI != "" && req.CodeChallenge != "" {
+		resp, authErr := h.oauthSvc.Authorize(ctx, user.ID, oauth.AuthorizeRequest{
+			ClientID:            req.ClientID,
+			RedirectURI:         req.RedirectURI,
+			ResponseType:        req.ResponseType,
+			Scope:               req.Scope,
+			State:               req.State,
+			CodeChallenge:       req.CodeChallenge,
+			CodeChallengeMethod: req.CodeChallengeMethod,
+		})
+		if authErr != nil {
+			middleware.WriteError(w, authErr)
+			return
+		}
+		redirectURL := resp.RedirectURI + "?code=" + resp.Code
+		if resp.State != "" {
+			redirectURL += "&state=" + resp.State
+		}
+		middleware.WriteJSON(w, http.StatusOK, authResponse{
+			AccessToken:  pair.AccessToken,
+			RefreshToken: pair.RefreshToken,
+			TokenType:    pair.TokenType,
+			ExpiresIn:    pair.ExpiresIn,
+			RedirectURL:  redirectURL,
+		})
+		return
 	}
 
 	middleware.WriteJSON(w, http.StatusOK, authResponse{

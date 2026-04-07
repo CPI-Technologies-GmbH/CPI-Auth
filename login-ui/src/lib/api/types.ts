@@ -70,6 +70,11 @@ export interface RegisterRequest {
 	custom_fields?: Record<string, string>;
 	client_id?: string;
 	redirect_uri?: string;
+	scope?: string;
+	state?: string;
+	code_challenge?: string;
+	code_challenge_method?: string;
+	response_type?: string;
 }
 
 export interface ForgotPasswordRequest {

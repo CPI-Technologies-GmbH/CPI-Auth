@@ -93,9 +93,17 @@
 				password,
 				name,
 				custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
+				// Forward the full OAuth context so the server can run the
+				// authorization code flow immediately and return a redirect_url,
+				// instead of dropping the user back on the login page.
 				...(oauth && {
 					client_id: oauth.client_id,
-					redirect_uri: oauth.redirect_uri
+					redirect_uri: oauth.redirect_uri,
+					scope: oauth.scope,
+					state: oauth.state,
+					code_challenge: oauth.code_challenge,
+					code_challenge_method: oauth.code_challenge_method,
+					response_type: oauth.response_type
 				})
 			});
 
