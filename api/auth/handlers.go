@@ -311,6 +311,7 @@ type passwordlessStartReq struct {
 	Email      string `json:"email"`
 	Connection string `json:"connection"` // "email" or "sms"
 	Send       string `json:"send"`       // "link" or "code"
+	ClientID   string `json:"client_id"`
 }
 
 func (h *Handler) PasswordlessStart(w http.ResponseWriter, r *http.Request) {
@@ -321,6 +322,12 @@ func (h *Handler) PasswordlessStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tenantID := middleware.GetTenantID(r.Context())
+	// Same precedence as Login/Register: client_id wins over host tenant.
+	if req.ClientID != "" && h.oauthSvc != nil {
+		if appTenantID, err := h.oauthSvc.ResolveAppTenant(r.Context(), req.ClientID); err == nil {
+			tenantID = appTenantID
+		}
+	}
 	user, err := h.userSvc.GetByEmail(r.Context(), tenantID, req.Email)
 	if err != nil {
 		// Don't reveal user existence
@@ -766,6 +773,22 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	tenantID := middleware.GetTenantID(ctx)
+
+	// Same precedence as Login: when the request carries an OAuth client_id
+	// the application's tenant must take priority over the host-derived
+	// tenant, otherwise registering on /t/lastsoftware/register with
+	// client_id=… would create the user in the default tenant instead of
+	// LastSoftware (and falsely report "user already exists" if there's a
+	// same-email user in the default tenant).
+	if req.ClientID != "" {
+		appTenantID, err := h.oauthSvc.ResolveAppTenant(ctx, req.ClientID)
+		if err != nil {
+			middleware.WriteError(w, err)
+			return
+		}
+		tenantID = appTenantID
+		ctx = context.WithValue(ctx, middleware.ContextKeyTenantID, tenantID)
+	}
 
 	// Execute pre-registration actions
 	if h.actionPipeline != nil {
