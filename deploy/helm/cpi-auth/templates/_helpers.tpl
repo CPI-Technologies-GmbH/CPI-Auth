@@ -108,9 +108,9 @@ Redis host
 */}}
 {{- define "cpi-auth.redisHost" -}}
 {{- if .Values.redis.external.enabled }}
-{{- printf "%s:%s" .Values.redis.external.host (.Values.redis.external.port | toString) }}
+{{- .Values.redis.external.host }}
 {{- else }}
-{{- printf "%s-redis:6379" (include "cpi-auth.fullname" .) }}
+{{- printf "%s-redis" (include "cpi-auth.fullname" .) }}
 {{- end }}
 {{- end }}
 

@@ -48,7 +48,7 @@ spec:
             - name: AF_REDIS_HOST
               value: {{ include "cpi-auth.redisHost" . | quote }}
             - name: AF_REDIS_PORT
-              value: "6379"
+              value: {{ if and .Values.redis.external.enabled .Values.redis.external.port }}{{ .Values.redis.external.port | quote }}{{ else }}"6379"{{ end }}
             - name: AF_NATS_URL
               value: {{ include "cpi-auth.natsURL" . | quote }}
             - name: AF_PUBLIC_DOMAIN
